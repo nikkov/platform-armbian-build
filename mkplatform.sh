@@ -2,14 +2,14 @@
 C=`pwd`
 A=../armbian
 B=current
-USERPATCHES_KERNEL_DIR=${B}
+USERPATCHES_KERNEL_DIR=archive/sunxi-6.1
 P=$1
-V=v21.08
+V=v23.05.2
 D=${P}-armbian
 
-cd ${A}
-CUR_BRANCH=`git rev-parse --abbrev-ref HEAD`
-cd ${C}
+#cd ${A}
+#CUR_BRANCH=`git rev-parse --abbrev-ref HEAD`
+#cd ${C}
 
 case $P in
 'nanopineo' | 'nanopiair' | 'orangepipc')
@@ -52,15 +52,26 @@ cd ${C}
 echo "Clean old patches"
 rm -rf ./${A}/userpatches
 echo "Copy patches"
-mkdir -p ./${A}/userpatches/kernel/sunxi-${USERPATCHES_KERNEL_DIR}
-cp ${C}/patches/kernel/sunxi-${B}/*.patch ./${A}/userpatches/kernel/sunxi-${USERPATCHES_KERNEL_DIR}/
+mkdir -p ./${A}/userpatches/kernel/${USERPATCHES_KERNEL_DIR}
+cp ./${A}/config/kernel/linux-sunxi-current.config ./${A}/userpatches/
+cp ./${A}/config/kernel/linux-sunxi64-current.config ./${A}/userpatches/
+#set changes to config and kernel sources
+sed -i "s/CONFIG_SND_SOC_PCM3060_SPI=m/CONFIG_SND_SOC_PCM3060_SPI=m\nCONFIG_SND_SOC_I2S_CLOCK_BOARD=m/1" ./${A}/userpatches/linux-sunxi-current.config
+sed -i "s/# CONFIG_SND_SOC_PCM5102A is not set/CONFIG_SND_SOC_PCM5102A=m/1" ./${A}/userpatches/linux-sunxi-current.config
+sed -i "s/CONFIG_SND_SOC_PCM3060_SPI=m/CONFIG_SND_SOC_PCM3060_SPI=m\nCONFIG_SND_SOC_I2S_CLOCK_BOARD=m/1" ./${A}/userpatches/linux-sunxi64-current.config
+cp ${C}/patches/kernel/sunxi-${B}/*.patch ./${A}/userpatches/kernel/${USERPATCHES_KERNEL_DIR}/
 
 cd ${A}
 
 rm -rf ./${A}/output/debs
 
 echo "U-Boot & kernel compile for ${P}"
-./compile.sh docker KERNEL_ONLY=yes BOARD=${P} BRANCH=${B} LIB_TAG=${V} RELEASE=buster KERNEL_CONFIGURE=no EXTERNAL=yes BUILD_KSRC=no BUILD_DESKTOP=no IGNORE_CHANGES=yes
+./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" ARTIFACT_IGNORE_CACHE='yes' BOARD=${P} BRANCH=${B} BUILD_MINIMAL=yes RELEASE=bullseye KERNEL_CONFIGURE=no
+retVal=$?
+if [ $retVal -ne 0 ]; then
+    echo "Error compile!"
+    exit $retVal
+fi
 
 cd ${C}
 rm -rf ./${D}
