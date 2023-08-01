@@ -45,6 +45,7 @@
                 compatible = "simple-audio-card";
                 simple-audio-card,format = "i2s";
                 simple-audio-card,name = "I2S";
+                simple-audio-card,mclk-fs = <0>;
                 status = "okay";
 
                 simple-audio-card,cpu {
