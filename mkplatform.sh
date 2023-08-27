@@ -132,31 +132,33 @@ case $PLATFORM in
 esac
 
 echo "Copy overlays for ${PLATFORM}"
-mkdir ./${D}/boot/overlay-user
+OVERLAYS_DIR=./${D}/boot/overlay-user
+mkdir ${OVERLAYS_DIR}
 
 case $BOARD in
 'nanopineo' | 'nanopiair' | 'orangepipc' | 'nanopineo2' | 'nanopineoplus2' | 'nanopineo2black')
-  cp ${C}/sources/overlays/allwinner/${PLATFORM}-*.* ./${D}/boot/overlay-user
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-i2s0-master.dtbo ${C}/sources/overlays/${PLATFORM}-i2s0-master.dts
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-i2s0-slave.dtbo ${C}/sources/overlays/${PLATFORM}-i2s0-slave.dts
-  echo "Copy overlays for power management"
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-powen.dtbo ${C}/sources/overlays/${PLATFORM}-powen.dts
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-powbut.dtbo ${C}/sources/overlays/${PLATFORM}-powbut.dts
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-powman.dtbo ${C}/sources/overlays/${PLATFORM}-powman.dts
+  cp ${C}/sources/overlays/allwinner/${PLATFORM}-*.* ${OVERLAYS_DIR}
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s0-master.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s0-master.dts
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s0-slave.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s0-slave.dts
+  #Overlays for power management
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powen.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powen.dts
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powbut.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powbut.dts
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powman.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powman.dts
   ;;
 'cubietruck')
-  cp ${C}/sources/overlays/allwinner/${PLATFORM}-*.* ./${D}/boot/overlay-user
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-i2s0-master.dtbo ${C}/sources/overlays/${PLATFORM}-i2s0-master.dts
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-i2s0-slave.dtbo ${C}/sources/overlays/${PLATFORM}-i2s0-slave.dts
-  echo "Copy overlays for disabling audio-codec and spdif for cubietruck"
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-analog-codec-disable.dtbo ${C}/sources/overlays/${PLATFORM}-analog-codec-disable.dts
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-spdif-disable.dtbo ${C}/sources/overlays/s${PLATFORM}-spdif-disable.dts
+  cp ${C}/sources/overlays/allwinner/${PLATFORM}-*.* ${OVERLAYS_DIR}
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s0-master.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s0-master.dts
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s0-slave.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s0-slave.dts
+  #overlays for disabling audio-codec and spdif for cubietruck
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-analog-codec-disable.dtbo ${OVERLAYS_DIR}/${PLATFORM}-analog-codec-disable.dts
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-spdif-disable.dtbo ${OVERLAYS_DIR}/${PLATFORM}-spdif-disable.dts
   ;;
 'nanopineo3')
-  cp ${C}/sources/overlays/rockchip/${PLATFORM}-*.* ./${D}/boot/overlay-user
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-i2s-external-mclk.dtbo ${C}/sources/overlays/${PLATFORM}-i2s-external-mclk.dts
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-spdif-out-enable.dtbo ${C}/sources/overlays/${PLATFORM}-spdif-out-enable.dts
-  dtc -@ -q -I dts -O dtb -o ./${D}/boot/overlay-user/${PLATFORM}-powman.dtbo ${C}/sources/overlays/${PLATFORM}-powman.dts
+  cp ${C}/sources/overlays/rockchip/${PLATFORM}-*.* ${OVERLAYS_DIR}
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk.dts
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-spdif-out-enable.dtbo ${OVERLAYS_DIR}/${PLATFORM}-spdif-out-enable.dts
+  #Overlays for power management
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powman.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powman.dts
   ;;
 esac
 
@@ -238,5 +240,6 @@ extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0" >>
   ;;
 esac
 
+echo "Create $D.tar.xz"
 rm $D.tar.xz
 tar cJf $D.tar.xz $D
