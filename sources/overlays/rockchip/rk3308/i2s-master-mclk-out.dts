@@ -1,0 +1,48 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "radxa,rockpis", "rockchip,rk3308";
+	
+ 	fragment@0 {
+ 		target-path = "/";
+ 		__overlay__ {
+            dummy_tdm_codec: dummy-codec {
+                status = "okay";
+                compatible = "rockchip,dummy-codec";
+                #sound-dai-cells = <0>;
+            };
+ 		};
+ 	};
+
+    fragment@1 {
+        target = <&i2s_8ch_0>;
+        __overlay__ {
+			#sound-dai-cells = <0>;
+			clock-names = "mclk_tx\0mclk_rx\0hclk\0mclk_tx_src\0mclk_rx_src\0mclk_root0\0mclk_root1";
+			clocks = <0x02 0x4d 0x02 0x4e 0x02 0xa4 0x02 0x6e 0x02 0x6f 0x02 0x03 0x02 0x04>;
+            status = "okay";
+        };
+    };
+
+    fragment@3 {
+        target-path = "/";
+        __overlay__ {
+			tdm_codec: tdm-codec {
+				compatible = "simple-audio-card";
+				simple-audio-card,name = "TDMCODEC";
+				simple-audio-card,format = "i2s";
+				simple-audio-card,mclk-fs = <256>;
+				status = "okay";
+
+				cpu_dai: simple-audio-card,cpu {
+					sound-dai = <&i2s_8ch_0>;
+				};
+						
+				codec_dai: simple-audio-card,codec {
+					sound-dai = <&dummy_tdm_codec>;
+				};
+			};
+		};
+    };
+};

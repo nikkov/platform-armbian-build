@@ -1,0 +1,90 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "radxa,rockpis", "rockchip,rk3308";
+	
+ 	fragment@0 {
+ 		target-path = "/";
+ 		__overlay__ {
+            i2s1_out: i2s1-clock {
+                #sound-dai-cells = <0>;
+                compatible = "custom,i2s_clock_board";
+                status = "okay";
+                clocks = <&cru 76>, <&mclk_i2s0_8ch_in>;
+                clock-names = "i2s_clk", "i2s_pclk";
+                mclk-fs = <256>;
+            };
+ 		};
+ 	};
+
+	fragment@1 {
+        target-path = "/";
+        __overlay__ {
+            osc44m: osc44m {
+                compatible = "fixed-clock";
+                #clock-cells = <0>;
+                clock-frequency = <11289600>;
+            };
+
+            osc48m: osc48m {
+                compatible = "fixed-clock";
+                #clock-cells = <0>;
+                clock-frequency = <12288000>;
+            };
+
+            mclk_i2s0_8ch_in: mclk_i2s0_8ch_in {
+                compatible = "gpio-mux-clock";
+                #clock-cells = <0>;
+                clock-output-names = "mclk_i2s0_8ch_in";
+                clocks = <&osc48m>, <&osc44m>;
+                select-gpios = <&gpio0 0x11 0>;
+            };
+        };
+    };
+
+    fragment@2 {
+        target = <&i2s_8ch_0>;
+        __overlay__ {
+			#sound-dai-cells = <0>;
+    		/delete-property/ rockchip,mclk-calibrate;
+            clock-names = "mclk_tx", "mclk_rx", "hclk";
+            clocks = <&cru 76>, <&cru 78>, <&cru 164>;
+            assigned-clocks = <&cru 102>;
+            assigned-clock-parents = <&mclk_i2s0_8ch_in>;
+            status = "okay";
+        };
+    };
+
+    fragment@3 {
+        target-path = "/";
+        __overlay__ {
+			tdm_codec: tdm-codec {
+				compatible = "simple-audio-card";
+				simple-audio-card,name = "TDMCODEC";
+				simple-audio-card,format = "i2s";
+				simple-audio-card,mclk-fs = <256>;
+				status = "okay";
+
+				cpu_dai: simple-audio-card,cpu {
+					sound-dai = <&i2s_8ch_0>;
+				};
+						
+				codec_dai: simple-audio-card,codec {
+					sound-dai = <&i2s1_out>;
+				};
+			};
+		};
+    };
+
+    fragment@4 {
+        target = <&pinctrl>;
+        __overlay__ {
+            ext_i2s {
+                select_gpios: select-gpios {
+    				rockchip,pins = <0x00 0x11 0x0 &pcfg_pull_up>;
+                };
+            };
+        };
+    };
+};

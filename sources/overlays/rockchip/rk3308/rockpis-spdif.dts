@@ -1,0 +1,37 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "radxa,rockpis", "rockchip,rk3308";
+
+    fragment@1 {
+        target = <&spdif_tx>;
+        __overlay__ {
+			#sound-dai-cells = <0x00>;
+			status = "okay";
+        };
+    };
+    fragment@2 {
+        target-path = "/";
+        __overlay__ {
+			spdif_output: spdif-output {
+				#sound-dai-cells = <0x00>;
+				compatible = "linux,spdif-dit";
+				status = "okay";
+			};
+		
+			spdif_sound: spdif-sound {
+				simple-audio-card,name = "SPDIF";
+				compatible = "simple-audio-card";
+
+				simple-audio-card,cpu {
+					sound-dai = <&spdif_tx>;
+				};
+
+				simple-audio-card,codec {
+					sound-dai = <&spdif_output>;
+				};
+			};
+        };
+    };
+};
