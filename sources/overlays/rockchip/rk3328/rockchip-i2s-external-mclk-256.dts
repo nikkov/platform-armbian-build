@@ -89,17 +89,4 @@
         };
     };
 
-    fragment@4 {
-        target = <&pinctrl>;
-        __overlay__ {
-            ext_i2s {
-                select_gpios: select-gpios {
-                    rockchip,pins = <3 6 0 &pcfg_pull_up>;
-                };
-                mute_gpios: mute-gpios {
-                    rockchip,pins = <3 4 0 &pcfg_pull_up>;
-                };
-            };
-        };
-    };
 };

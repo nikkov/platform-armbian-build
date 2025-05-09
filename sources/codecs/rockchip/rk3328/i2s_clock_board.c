@@ -39,7 +39,7 @@ struct i2s_clock_board_priv {
     // master clock ration
     unsigned long mclk_fs;
     // mute pin, =0 if not used
-    unsigned long mute_gpio;
+    struct gpio_desc *pd_gpio;
     bool inverse_mute;
 };
 
@@ -140,8 +140,8 @@ static int i2s_clock_board_trigger(struct snd_pcm_substream *substream, int cmd,
         case SNDRV_PCM_TRIGGER_RESUME:
             DBGOUT("i2s_clock_board: %s, component %s start\n", __func__, component->name);
             if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-                if(priv->mute_gpio)
-                    gpio_set_value(priv->mute_gpio, priv->inverse_mute ? 1 : 0);
+                if (priv->pd_gpio)
+                    gpiod_set_value(priv->pd_gpio, priv->inverse_mute ? 1 : 0);
             }
             else {
             }
@@ -152,8 +152,8 @@ static int i2s_clock_board_trigger(struct snd_pcm_substream *substream, int cmd,
         case SNDRV_PCM_TRIGGER_SUSPEND:
             DBGOUT("i2s_clock_board: %s, component %s stop\n", __func__, component->name);
             if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-                if(priv->mute_gpio)
-                    gpio_set_value(priv->mute_gpio, priv->inverse_mute ? 0 : 1);
+                if (priv->pd_gpio)
+                    gpiod_set_value(priv->pd_gpio, priv->inverse_mute ? 0 : 1);
             }
             else {
             }
@@ -209,7 +209,6 @@ static int i2s_clock_board_probe(struct platform_device *pdev)
     struct i2s_clock_board_priv *priv;
     u32 mclk_fs;
     struct clk *i2s_clk;
-    int ret;
 
     DBGOUT("i2s_clock_board: %s\n", __func__);
     priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -252,17 +251,19 @@ static int i2s_clock_board_probe(struct platform_device *pdev)
     }
     priv->mclk_fs = mclk_fs;
 
-    ret = of_get_named_gpio(dev->of_node, "mute-gpios", 0);
-    if(ret < 0)
-        priv->mute_gpio = 0;
+    priv->pd_gpio = devm_gpiod_get(dev, "mute", GPIOD_OUT_HIGH);
+    if (IS_ERR(priv->pd_gpio)) {
+        priv->pd_gpio = 0;
+        DBGOUT("%s: mute not used\n", __func__);
+    }
     else {
-        priv->mute_gpio = ret;
         if (of_property_read_bool(dev->of_node, "inversion-mute"))
             priv->inverse_mute = true;
         else
             priv->inverse_mute = false;
+        gpiod_set_value(priv->pd_gpio, priv->inverse_mute ? 0 : 1);
+        DBGOUT("%s: mute used, inverse flag = %d\n", __func__, (int)priv->inverse_mute);
     }
-    DBGOUT("%s: priv->mute_gpio = %lu, priv->inverse_mute = %d\n", __func__, priv->mute_gpio, (int)priv->inverse_mute);
 
     return snd_soc_register_component(dev, &soc_codec_i2s_clock_board,
       &i2s_clock_board_dai, 1);
