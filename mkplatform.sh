@@ -3,8 +3,9 @@ C=`pwd`
 A=../armbian
 BRANCH=current
 BOARD=$1
-V=v23.08
+V=v25.02
 D=${BOARD}-armbian
+RELEASE=bookworm
 
 case $BOARD in
 'nanopineo' | 'nanopiair' | 'orangepipc')
@@ -30,17 +31,25 @@ case $PLATFORM in
 'sun8i-h3' | 'sun7i-a20')
   LINUX_CONGIG_NAME="linux-sunxi-${BRANCH}.config"
   PATCHES_SRC_DIR=${C}/patches/kernel/sunxi
-  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/sunxi-6.1
+  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/sunxi-6.6
   ;;
 'sun50i-h5')
   LINUX_CONGIG_NAME="linux-sunxi64-${BRANCH}.config"
   PATCHES_SRC_DIR=${C}/patches/kernel/sunxi
-  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/sunxi-6.1
+  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/sunxi-6.6
   ;;
 'rockchip')
   LINUX_CONGIG_NAME="linux-rockchip64-${BRANCH}.config"
-  PATCHES_SRC_DIR=${C}/patches/kernel/rockchip
-  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/rockchip64-${BRANCH}
+  case $BOARD in
+  'nanopineo3')
+    PATCHES_SRC_DIR=${C}/patches/kernel/rockchip/rk3328
+    ;;
+  'rockpi-s')
+    PATCHES_SRC_DIR=${C}/patches/kernel/rockchip/rk3308
+    ;;
+  esac
+
+  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/rockchip64-6.12
   ;;
 esac
 
@@ -92,7 +101,7 @@ cd ${A}
 echo "Clean old debs"
 rm -rf ./${A}/output/debs
 echo "U-Boot & kernel compile for ${BOARD}"
-./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" SHARE_LOG=yes ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes RELEASE=bullseye KERNEL_CONFIGURE=no
+./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" SHARE_LOG=yes ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes RELEASE=${RELEASE} KERNEL_CONFIGURE=no
 retVal=$?
 if [ $retVal -ne 0 ]; then
     echo "Error compile!"
@@ -154,8 +163,9 @@ case $BOARD in
   dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-spdif-disable.dtbo ${OVERLAYS_DIR}/${PLATFORM}-spdif-disable.dts
   ;;
 'nanopineo3')
-  cp ${C}/sources/overlays/rockchip/${PLATFORM}-*.* ${OVERLAYS_DIR}
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk.dts
+  cp ${C}/sources/overlays/rockchip/rk3328/${PLATFORM}-*.* ${OVERLAYS_DIR}
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk-256.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk-256.dts
+  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk-512.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk-512.dts
   dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-spdif-out-enable.dtbo ${OVERLAYS_DIR}/${PLATFORM}-spdif-out-enable.dts
   #Overlays for power management
   dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powman.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powman.dts
