@@ -1,0 +1,601 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: John Doe <john.doe@somewhere.on.planet>
+Date: Wed, 4 Jun 2025 20:35:45 +0600
+Subject: Patching kernel rockchip64 files sound/soc/codecs/Kconfig
+ sound/soc/codecs/Makefile sound/soc/codecs/i2s_codec.c
+ sound/soc/rockchip/rockchip_i2s_tdm.c
+
+Signed-off-by: John Doe <john.doe@somewhere.on.planet>
+---
+ sound/soc/codecs/Kconfig              |   3 +
+ sound/soc/codecs/Makefile             |   2 +
+ sound/soc/codecs/i2s_codec.c          | 147 ++++++++
+ sound/soc/rockchip/rockchip_i2s_tdm.c | 187 +++++++++-
+ 4 files changed, 331 insertions(+), 8 deletions(-)
+
+diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
+index 0b9e87dc2b6c..0a5d3ea7e3d8 100644
+--- a/sound/soc/codecs/Kconfig
++++ b/sound/soc/codecs/Kconfig
+@@ -1473,10 +1473,13 @@ config SND_SOC_PCM3168A_SPI
+ 	select REGMAP_SPI
+ 
+ config SND_SOC_PCM5102A
+ 	tristate "Texas Instruments PCM5102A CODEC"
+ 
++config SND_SOC_I2S_CODEC
++	tristate "Simple I2S codec"
++
+ config SND_SOC_PCM512x
+ 	tristate
+ 
+ config SND_SOC_PCM512x_I2C
+ 	tristate "Texas Instruments PCM512x CODECs - I2C"
+diff --git a/sound/soc/codecs/Makefile b/sound/soc/codecs/Makefile
+index d7ad795603c1..f6e856fac77b 100644
+--- a/sound/soc/codecs/Makefile
++++ b/sound/soc/codecs/Makefile
+@@ -211,10 +211,11 @@ snd-soc-pcm3060-i2c-y := pcm3060-i2c.o
+ snd-soc-pcm3060-spi-y := pcm3060-spi.o
+ snd-soc-pcm3168a-y := pcm3168a.o
+ snd-soc-pcm3168a-i2c-y := pcm3168a-i2c.o
+ snd-soc-pcm3168a-spi-y := pcm3168a-spi.o
+ snd-soc-pcm5102a-y := pcm5102a.o
++snd-soc-i2s_codec-objs := i2s_codec.o
+ snd-soc-pcm512x-y := pcm512x.o
+ snd-soc-pcm512x-i2c-y := pcm512x-i2c.o
+ snd-soc-pcm512x-spi-y := pcm512x-spi.o
+ snd-soc-pcm6240-y := pcm6240.o
+ snd-soc-peb2466-y := peb2466.o
+@@ -623,10 +624,11 @@ obj-$(CONFIG_SND_SOC_PCM3060_I2C)	+= snd-soc-pcm3060-i2c.o
+ obj-$(CONFIG_SND_SOC_PCM3060_SPI)	+= snd-soc-pcm3060-spi.o
+ obj-$(CONFIG_SND_SOC_PCM3168A)	+= snd-soc-pcm3168a.o
+ obj-$(CONFIG_SND_SOC_PCM3168A_I2C)	+= snd-soc-pcm3168a-i2c.o
+ obj-$(CONFIG_SND_SOC_PCM3168A_SPI)	+= snd-soc-pcm3168a-spi.o
+ obj-$(CONFIG_SND_SOC_PCM5102A)	+= snd-soc-pcm5102a.o
++obj-$(CONFIG_SND_SOC_I2S_CODEC)	+= snd-soc-i2s_codec.o
+ obj-$(CONFIG_SND_SOC_PCM512x)	+= snd-soc-pcm512x.o
+ obj-$(CONFIG_SND_SOC_PCM512x_I2C)	+= snd-soc-pcm512x-i2c.o
+ obj-$(CONFIG_SND_SOC_PCM512x_SPI)	+= snd-soc-pcm512x-spi.o
+ obj-$(CONFIG_SND_SOC_PCM6240)	+= snd-soc-pcm6240.o
+ obj-$(CONFIG_SND_SOC_PEB2466)	+= snd-soc-peb2466.o
+diff --git a/sound/soc/codecs/i2s_codec.c b/sound/soc/codecs/i2s_codec.c
+new file mode 100644
+index 000000000000..84b82dd46423
+--- /dev/null
++++ b/sound/soc/codecs/i2s_codec.c
+@@ -0,0 +1,147 @@
++/*
++ * Driver for clocks board for i2s bus
++ *
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * version 2 as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ */
++
++#include <linux/clk.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/of_device.h>
++#include <linux/gpio.h>
++#include <linux/of_gpio.h>
++#include <linux/platform_device.h>
++#include <sound/pcm_params.h>
++#include <sound/soc.h>
++#include <sound/soc-component.h>
++
++struct i2s_clock_board_priv {
++    struct device *dev;
++    // mute pin, =0 if not used
++    struct gpio_desc *pd_gpio;
++    bool inverse_mute;
++};
++
++
++static const struct snd_soc_component_driver soc_codec_i2s_clock_board = {
++};
++
++static int i2s_clock_board_trigger(struct snd_pcm_substream *substream, int cmd,
++             struct snd_soc_dai *dai)
++{
++    struct snd_soc_component *component = dai->component;
++    struct i2s_clock_board_priv *priv = snd_soc_component_get_drvdata(component);
++    switch (cmd) {
++        case SNDRV_PCM_TRIGGER_START:
++        case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
++        case SNDRV_PCM_TRIGGER_RESUME:
++            dev_dbg(priv->dev, "i2s_clock_board: %s, component %s start\n", __func__, component->name);
++            if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
++                if (priv->pd_gpio)
++                    gpiod_set_value(priv->pd_gpio, priv->inverse_mute ? 1 : 0);
++            }
++            else {
++            }
++        break;
++
++        case SNDRV_PCM_TRIGGER_STOP:
++        case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
++        case SNDRV_PCM_TRIGGER_SUSPEND:
++            dev_dbg(priv->dev, "i2s_clock_board: %s, component %s stop\n", __func__, component->name);
++            if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
++                if (priv->pd_gpio)
++                    gpiod_set_value(priv->pd_gpio, priv->inverse_mute ? 0 : 1);
++            }
++            else {
++            }
++        break;
++
++        default:
++        return -EINVAL;
++    }
++
++    return 0;
++}
++
++static const struct snd_soc_dai_ops i2s_clock_board_dai_ops = {
++    .trigger    = i2s_clock_board_trigger,
++};
++
++static struct snd_soc_dai_driver i2s_clock_board_dai = {
++    .name               = "i2s_clock_board",
++    .playback = {
++        .stream_name    = "Playback",
++        .channels_min   = 2,
++        .channels_max   = 8,
++        .rates          = SNDRV_PCM_RATE_KNOT,
++        .formats        = (SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE |
++		       SNDRV_PCM_FMTBIT_S32_LE | SNDRV_PCM_FMTBIT_DSD_U32_LE),
++    },
++    .capture = {
++        .stream_name    = "Capture",
++        .channels_min   = 2,
++        .channels_max   = 8,
++        .rates          = SNDRV_PCM_RATE_KNOT,
++        .formats        = (SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE |
++		       SNDRV_PCM_FMTBIT_S32_LE | SNDRV_PCM_FMTBIT_DSD_U32_LE),
++    },
++    .ops                = &i2s_clock_board_dai_ops,
++};
++
++static const struct of_device_id i2s_clock_board_dt_ids[] = {
++    { .compatible = "custom,i2s_clock_board", },
++    { }
++};
++MODULE_DEVICE_TABLE(of, i2s_clock_board_dt_ids);
++
++static int i2s_clock_board_probe(struct platform_device *pdev)
++{
++    struct device *dev = &pdev->dev;
++    struct i2s_clock_board_priv *priv;
++
++    dev_dbg(dev, "%s\n", __func__);
++    priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
++    if (!priv)
++        return -ENOMEM;
++
++    dev_set_drvdata(dev, priv);
++    priv->dev = &pdev->dev;
++	
++    priv->pd_gpio = devm_gpiod_get(dev, "mute", GPIOD_OUT_HIGH);
++    if (IS_ERR(priv->pd_gpio)) {
++        priv->pd_gpio = 0;
++        dev_dbg(dev, "%s: mute not used\n", __func__);
++    }
++    else {
++        if (of_property_read_bool(dev->of_node, "inversion-mute"))
++            priv->inverse_mute = true;
++        else
++            priv->inverse_mute = false;
++        gpiod_set_value(priv->pd_gpio, priv->inverse_mute ? 0 : 1);
++        dev_dbg(dev, "%s: mute used, inverse flag = %d\n", __func__, (int)priv->inverse_mute);
++    }
++	
++    return snd_soc_register_component(dev, &soc_codec_i2s_clock_board,
++		&i2s_clock_board_dai, 1);
++}
++
++static struct platform_driver i2s_clock_board_driver = {
++    .probe              = i2s_clock_board_probe,
++    .driver             = {
++        .name           = "i2s_clock_board",
++        .of_match_table = of_match_ptr(i2s_clock_board_dt_ids),
++    },
++};
++
++module_platform_driver(i2s_clock_board_driver);
++
++MODULE_DESCRIPTION("ASoC external clock board for I2S bus");
++MODULE_LICENSE("GPL v2");
+\ No newline at end of file
+diff --git a/sound/soc/rockchip/rockchip_i2s_tdm.c b/sound/soc/rockchip/rockchip_i2s_tdm.c
+index acd75e48851f..4d322b514878 100644
+--- a/sound/soc/rockchip/rockchip_i2s_tdm.c
++++ b/sound/soc/rockchip/rockchip_i2s_tdm.c
+@@ -9,10 +9,12 @@
+ #include <linux/clk-provider.h>
+ #include <linux/delay.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
++#include <linux/gpio.h>
++#include <linux/of_gpio.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/regmap.h>
+ #include <linux/reset.h>
+ #include <linux/spinlock.h>
+ #include <sound/dmaengine_pcm.h>
+@@ -56,10 +58,21 @@ struct rk_i2s_tdm_dev {
+ 	struct snd_dmaengine_dai_dma_data playback_dma_data;
+ 	struct reset_control *tx_reset;
+ 	struct reset_control *rx_reset;
+ 	const struct rk_i2s_soc_data *soc_data;
+ 	bool is_master_mode;
++//+++
++	bool mclk_external;					// using external master-clock source connected to pin I2SX_8CH_MCLK 
++	bool mclk_ext_mux;					// external master-clock source has to two switchable generators x44 and x48
++	bool s2mono;						// using two separate I2S out for left/right channels (dual mono mode)
++	struct clk *mclk_ext;				// external master-clock source
++	struct clk *clk_44;					// external x44 generator
++	struct clk *clk_48;					// external x48 generator
++    struct gpio_desc *dsd_gpio;			// DSD output indicator
++    bool inverse_dsd;					// direct or inverse signal of DSD
++	//int dcount;
++//+++
+ 	bool io_multiplex;
+ 	bool tdm_mode;
+ 	unsigned int frame_width;
+ 	unsigned int clk_trcm;
+ 	unsigned int i2s_sdis[CH_GRP_MAX];
+@@ -244,12 +257,17 @@ static void rockchip_snd_xfer_clear(struct rk_i2s_tdm_dev *i2s_tdm,
+ 		if (!retry) {
+ 			dev_warn(i2s_tdm->dev, "clear failed, reset %s%s\n",
+ 				 tx ? "tx" : "", rx ? "rx" : "");
+ 			if (rx && tx)
+ 				rockchip_snd_xfer_sync_reset(i2s_tdm);
+-			else if (tx)
++			else if (tx) {
++//+++
++//				dev_dbg(i2s_tdm->dev, "%s tx_reset dcount = %u\n", 
++//					__func__, i2s_tdm->dcount++);
++//+++
+ 				rockchip_snd_reset(i2s_tdm->tx_reset);
++			}
+ 			else if (rx)
+ 				rockchip_snd_reset(i2s_tdm->rx_reset);
+ 			break;
+ 		}
+ 	}
+@@ -315,10 +333,14 @@ static void rockchip_snd_txrxctrl(struct snd_pcm_substream *substream,
+ 	spin_unlock_irqrestore(&i2s_tdm->lock, flags);
+ }
+ 
+ static void rockchip_snd_txctrl(struct rk_i2s_tdm_dev *i2s_tdm, int on)
+ {
++//+++
++//	dev_dbg(i2s_tdm->dev, "%s on=%u dcount = %u\n", 
++//		__func__, on, i2s_tdm->dcount++);
++//+++
+ 	if (on) {
+ 		rockchip_enable_tde(i2s_tdm->regmap);
+ 
+ 		regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
+ 				   I2S_XFER_TXS_START,
+@@ -351,10 +373,15 @@ static int rockchip_i2s_tdm_set_fmt(struct snd_soc_dai *cpu_dai,
+ 	struct rk_i2s_tdm_dev *i2s_tdm = to_info(cpu_dai);
+ 	unsigned int mask, val, tdm_val, txcr_val, rxcr_val;
+ 	int ret;
+ 	bool is_tdm = i2s_tdm->tdm_mode;
+ 
++//+++
++//	dev_dbg(i2s_tdm->dev, "%s dcount = %u\n", 
++//		__func__, i2s_tdm->dcount++);
++//+++
++
+ 	ret = pm_runtime_resume_and_get(cpu_dai->dev);
+ 	if (ret < 0 && ret != -EACCES)
+ 		return ret;
+ 
+ 	mask = I2S_CKR_MSS_MASK;
+@@ -673,10 +700,11 @@ static int rockchip_i2s_tdm_hw_params(struct snd_pcm_substream *substream,
+ {
+ 	struct rk_i2s_tdm_dev *i2s_tdm = to_info(dai);
+ 	unsigned int val = 0;
+ 	unsigned int mclk_rate, bclk_rate, div_bclk = 4, div_lrck = 64;
+ 	int err;
++	bool s2mono = i2s_tdm->s2mono;
+ 
+ 	if (i2s_tdm->is_master_mode) {
+ 		struct clk *mclk;
+ 
+ 		if (i2s_tdm->clk_trcm == TRCM_TX) {
+@@ -691,23 +719,80 @@ static int rockchip_i2s_tdm_hw_params(struct snd_pcm_substream *substream,
+ 		} else {
+ 			mclk = i2s_tdm->mclk_rx;
+ 			mclk_rate = i2s_tdm->mclk_rx_freq;
+ 		}
+ 
+-		err = clk_set_rate(mclk, mclk_rate);
+-		if (err)
+-			return err;
++//+++
++//+++
++//		dev_dbg(i2s_tdm->dev, "%s dcount = %u, mclk_rate = %u, params_rate(params) = %u\n", 
++//			__func__, i2s_tdm->dcount++, mclk_rate, params_rate(params));
++		dev_dbg(i2s_tdm->dev, "%s mclk_rate = %u, params_rate(params) = %u, DSD = %d\n", 
++			__func__, mclk_rate, params_rate(params), params_format(params) == SNDRV_PCM_FORMAT_DSD_U32_LE ? 1 : 0);
++//+++
++		if( params_format(params) == SNDRV_PCM_FORMAT_DSD_U32_LE ) 
++			s2mono = 1;
++		if( i2s_tdm->tdm_mode != true ) {
++			if( params_format(params) == SNDRV_PCM_FORMAT_S16_LE ) {
++				div_lrck = 32; i2s_tdm->frame_width = 32;
++				//s2mono = 0;
++			} else if( s2mono ) {
++				div_lrck = 32; i2s_tdm->frame_width = 32;
++			} else {
++				div_lrck = 64; i2s_tdm->frame_width = 64;
++			} 
++			dev_dbg(i2s_tdm->dev, "%s div_lrck %u frame_width %u\n", 
++				__func__, div_lrck, i2s_tdm->frame_width);
++		}
++//+++
++
++		if( !i2s_tdm->mclk_external ){
++			if( params_rate(params) % 44100 )
++				err = clk_set_rate(mclk, 512 * 48000);
++			else
++				err = clk_set_rate(mclk, 512 * 44100);
++			if (err)
++				return err;
++		}
++
++//+++
++		if( i2s_tdm->mclk_external ){
++			if( i2s_tdm->mclk_ext_mux ) {
++				if( params_rate(params) % 44100 ) {
++					clk_set_parent( i2s_tdm->mclk_ext, i2s_tdm->clk_48);
++					dev_dbg(i2s_tdm->dev, "%s external mclk 48x, rate %u\n", 
++						__func__, params_rate(params));
++				}
++				else {
++					clk_set_parent( i2s_tdm->mclk_ext, i2s_tdm->clk_44);
++					dev_dbg(i2s_tdm->dev, "%s external mclk 44x, rate %u\n", 
++						__func__, params_rate(params));
++				}
++			}
++		}
++//+++
+ 
+ 		mclk_rate = clk_get_rate(mclk);
+ 		bclk_rate = i2s_tdm->frame_width * params_rate(params);
+ 		if (!bclk_rate)
+ 			return -EINVAL;
+ 
+ 		div_bclk = DIV_ROUND_CLOSEST(mclk_rate, bclk_rate);
+ 		div_lrck = bclk_rate / params_rate(params);
++		dev_dbg(i2s_tdm->dev, "%s, tdm is master, div_bclk %u, div_lrck %u\n", 
++			__func__, div_bclk, div_lrck);
+ 	}
+ 
++//+++
++	if( s2mono && (params_format(params) != SNDRV_PCM_FORMAT_S16_LE) ) {
++		val |= I2S_TXCR_VDW(16);
++		val |= I2S_CHN_4;
++		dev_dbg(i2s_tdm->dev, "%s s2mono\n", 
++			__func__);
++		goto s2mono_l;
++	}
++//+++
++
+ 	switch (params_format(params)) {
+ 	case SNDRV_PCM_FORMAT_S8:
+ 		val |= I2S_TXCR_VDW(8);
+ 		break;
+ 	case SNDRV_PCM_FORMAT_S16_LE:
+@@ -720,10 +805,13 @@ static int rockchip_i2s_tdm_hw_params(struct snd_pcm_substream *substream,
+ 		val |= I2S_TXCR_VDW(24);
+ 		break;
+ 	case SNDRV_PCM_FORMAT_S32_LE:
+ 		val |= I2S_TXCR_VDW(32);
+ 		break;
++	case SNDRV_PCM_FORMAT_DSD_U32_LE:
++		val |= I2S_TXCR_VDW(32);
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+ 
+ 	switch (params_channels(params)) {
+@@ -741,16 +829,30 @@ static int rockchip_i2s_tdm_hw_params(struct snd_pcm_substream *substream,
+ 		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+ 
++s2mono_l:
++	if(i2s_tdm->dsd_gpio) {
++		if(params_format(params) == SNDRV_PCM_FORMAT_DSD_U32_LE)
++            gpiod_set_value(i2s_tdm->dsd_gpio, i2s_tdm->inverse_dsd ? 0 : 1);
++		else
++            gpiod_set_value(i2s_tdm->dsd_gpio, i2s_tdm->inverse_dsd ? 1 : 0);
++	}
++
+ 	if (i2s_tdm->clk_trcm) {
+ 		rockchip_i2s_trcm_mode(substream, dai, div_bclk, div_lrck, val);
+ 	} else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+ 		regmap_update_bits(i2s_tdm->regmap, I2S_CLKDIV,
+ 				   I2S_CLKDIV_TXM_MASK,
+ 				   I2S_CLKDIV_TXM(div_bclk));
++		//---???---
++		regmap_update_bits(i2s_tdm->regmap, I2S_CLKDIV,
++				   I2S_CLKDIV_RXM_MASK,
++				   I2S_CLKDIV_RXM(div_bclk));
++		//---
++
+ 		regmap_update_bits(i2s_tdm->regmap, I2S_CKR,
+ 				   I2S_CKR_TSD_MASK,
+ 				   I2S_CKR_TSD(div_lrck));
+ 		regmap_update_bits(i2s_tdm->regmap, I2S_TXCR,
+ 				   I2S_TXCR_VDW_MASK | I2S_TXCR_CSR_MASK,
+@@ -805,25 +907,35 @@ static int rockchip_i2s_tdm_trigger(struct snd_pcm_substream *substream,
+ 
+ static int rockchip_i2s_tdm_dai_probe(struct snd_soc_dai *dai)
+ {
+ 	struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
+ 
++//+++
++//		dev_dbg(i2s_tdm->dev, "%s dcount = %u\n", 
++//			__func__, i2s_tdm->dcount++);
++//+++
++
+ 	if (i2s_tdm->has_capture)
+ 		snd_soc_dai_dma_data_set_capture(dai,  &i2s_tdm->capture_dma_data);
+ 	if (i2s_tdm->has_playback)
+ 		snd_soc_dai_dma_data_set_playback(dai, &i2s_tdm->playback_dma_data);
+-
++	
+ 	return 0;
+ }
+ 
+ static int rockchip_dai_tdm_slot(struct snd_soc_dai *dai,
+ 				 unsigned int tx_mask, unsigned int rx_mask,
+ 				 int slots, int slot_width)
+ {
+ 	struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
+ 	unsigned int mask, val;
+ 
++//+++
++//	dev_dbg(i2s_tdm->dev, "%s dcount = %u\n",
++//		__func__, i2s_tdm->dcount++);
++//+++
++
+ 	i2s_tdm->tdm_mode = true;
+ 	i2s_tdm->frame_width = slots * slot_width;
+ 	mask = TDM_SLOT_BIT_WIDTH_MSK | TDM_FRAME_WIDTH_MSK;
+ 	val = TDM_SLOT_BIT_WIDTH(slot_width) |
+ 	      TDM_FRAME_WIDTH(slots * slot_width);
+@@ -838,10 +950,15 @@ static int rockchip_dai_tdm_slot(struct snd_soc_dai *dai,
+ static int rockchip_i2s_tdm_set_bclk_ratio(struct snd_soc_dai *dai,
+ 					   unsigned int ratio)
+ {
+ 	struct rk_i2s_tdm_dev *i2s_tdm = snd_soc_dai_get_drvdata(dai);
+ 
++//+++
++//	dev_dbg(i2s_tdm->dev, "%s ratio %u dcount = %u\n",
++//		__func__, ratio, i2s_tdm->dcount++);
++//+++
++
+ 	if (ratio < 32 || ratio > 512 || ratio % 2 == 1)
+ 		return -EINVAL;
+ 
+ 	i2s_tdm->frame_width = ratio;
+ 
+@@ -1068,11 +1185,11 @@ static int rockchip_i2s_tdm_init_dai(struct rk_i2s_tdm_dev *i2s_tdm)
+ 	struct snd_soc_dai_driver *dai;
+ 	struct property *dma_names;
+ 	const char *dma_name;
+ 	u64 formats = (SNDRV_PCM_FMTBIT_S8 | SNDRV_PCM_FMTBIT_S16_LE |
+ 		       SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S24_LE |
+-		       SNDRV_PCM_FMTBIT_S32_LE);
++		       SNDRV_PCM_FMTBIT_S32_LE | SNDRV_PCM_FMTBIT_DSD_U32_LE);
+ 	struct device_node *node = i2s_tdm->dev->of_node;
+ 
+ 	of_property_for_each_string(node, "dma-names", dma_names, dma_name) {
+ 		if (!strcmp(dma_name, "tx"))
+ 			i2s_tdm->has_playback = true;
+@@ -1087,19 +1204,19 @@ static int rockchip_i2s_tdm_init_dai(struct rk_i2s_tdm_dev *i2s_tdm)
+ 
+ 	if (i2s_tdm->has_playback) {
+ 		dai->playback.stream_name  = "Playback";
+ 		dai->playback.channels_min = 2;
+ 		dai->playback.channels_max = 8;
+-		dai->playback.rates = SNDRV_PCM_RATE_8000_192000;
++		dai->playback.rates = SNDRV_PCM_RATE_8000_768000;
+ 		dai->playback.formats = formats;
+ 	}
+ 
+ 	if (i2s_tdm->has_capture) {
+ 		dai->capture.stream_name  = "Capture";
+ 		dai->capture.channels_min = 2;
+ 		dai->capture.channels_max = 8;
+-		dai->capture.rates = SNDRV_PCM_RATE_8000_192000;
++		dai->capture.rates = SNDRV_PCM_RATE_8000_768000;
+ 		dai->capture.formats = formats;
+ 	}
+ 
+ 	if (i2s_tdm->clk_trcm != TRCM_TXRX)
+ 		dai->symmetric_rate = 1;
+@@ -1313,10 +1430,64 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
+ 	if (IS_ERR(i2s_tdm->mclk_rx)) {
+ 		return dev_err_probe(i2s_tdm->dev, PTR_ERR(i2s_tdm->mclk_rx),
+ 				     "Failed to get clock mclk_rx\n");
+ 	}
+ 
++//+++
++	i2s_tdm->s2mono = 0;
++	i2s_tdm->s2mono =
++		of_property_read_bool(node, "my,s2mono");
++
++	i2s_tdm->mclk_external = 0;
++	i2s_tdm->mclk_external =
++		of_property_read_bool(node, "my,mclk_external");
++
++	if (i2s_tdm->mclk_external) {
++		i2s_tdm->mclk_ext = devm_clk_get(&pdev->dev, "mclk_ext");
++		if (IS_ERR(i2s_tdm->mclk_ext)) {
++			return dev_err_probe(i2s_tdm->dev, PTR_ERR(i2s_tdm->mclk_ext),
++					     "Failed to get clock mclk_ext\n");
++		}
++		else {
++			i2s_tdm->mclk_ext_mux = 0;
++			i2s_tdm->clk_44 = devm_clk_get(&pdev->dev, "clk_44");
++			if (!IS_ERR(i2s_tdm->clk_44)) {
++				i2s_tdm->clk_48 = devm_clk_get(&pdev->dev, "clk_48");
++				if (!IS_ERR(i2s_tdm->clk_48)) i2s_tdm->mclk_ext_mux = 1;
++			}
++		}
++		// disconnect mclk pin from PLL
++		if ( of_device_is_compatible( node, "rockchip,rk3308-i2s-tdm") ) {
++			void __iomem *gate13;
++			gate13 = ioremap( (resource_size_t) 0xff500000 + 0x0334, 32);
++			writel( 0x300030, gate13);
++			iounmap( gate13 );
++		}
++		dev_info(i2s_tdm->dev, "External master-clock source is used\n");
++	}
++	else
++		dev_info(i2s_tdm->dev, "Internal master-clock source is used\n");
++	
++    i2s_tdm->dsd_gpio = devm_gpiod_get_optional(&pdev->dev, "my,dsd", GPIOD_OUT_HIGH);
++    if (IS_ERR_OR_NULL(i2s_tdm->dsd_gpio)) {
++        i2s_tdm->dsd_gpio = 0;
++        dev_info(i2s_tdm->dev, "%s: DSD indicator not used\n",
++			__func__);
++    }
++    else {
++        if (of_property_read_bool(node, "my,inversion-dsd"))
++            i2s_tdm->inverse_dsd = true;
++        else
++            i2s_tdm->inverse_dsd = false;
++        gpiod_set_value(i2s_tdm->dsd_gpio, i2s_tdm->inverse_dsd ? 1 : 0);
++        dev_info(i2s_tdm->dev, "%s: DSD indicator used, inverse flag = %d\n",
++			__func__, (int)i2s_tdm->inverse_dsd);
++    }
++//+++
++
++//	i2s_tdm->dcount = 0;
++
+ 	i2s_tdm->io_multiplex =
+ 		of_property_read_bool(node, "rockchip,io-multiplex");
+ 
+ 	regs = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
+ 	if (IS_ERR(regs)) {
+-- 
+Created with Armbian build tools https://github.com/armbian/build
+

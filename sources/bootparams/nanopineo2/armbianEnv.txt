@@ -1,0 +1,10 @@
+verbosity=1
+logo=disabled
+console=serial
+overlay_prefix=sun50i-h5
+overlays=usbhost1 usbhost2 analog-codec i2c0
+rootdev=/dev/mmcblk0p2
+rootfstype=ext4
+user_overlays=sun50i-h5-i2s0-slave
+usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
+extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0

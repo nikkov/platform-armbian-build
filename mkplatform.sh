@@ -1,60 +1,58 @@
 #!/bin/bash
 C=`pwd`
 A=../armbian
-BRANCH=current
+BRANCH=edge
 BOARD=$1
-V=v25.02
+V=v25.05
 D=${BOARD}-armbian
 RELEASE=bookworm
 
 case $BOARD in
 'nanopineo' | 'nanopiair' | 'orangepipc')
-  PLATFORM="sun8i-h3"
+  FAMILY="sunxi"
+  SOC="sun8i-h3"
+  BOOT_SCRIPT=boot-sunxi.cmd
   ;;
 'nanopineo2' | 'nanopineoplus2' | 'nanopineo2black')
-  PLATFORM="sun50i-h5"
+  FAMILY="sunxi64"
+  SOC="sun50i-h5"
+  BOOT_SCRIPT=boot-sun50i-next.cmd
   ;;
 'cubietruck')
-  PLATFORM="sun7i-a20"
+  FAMILY="sunxi"
+  SOC="sun7i-a20"
+  BOOT_SCRIPT=boot-sunxi.cmd
   ;;
 'nanopineo3')
-  PLATFORM="rockchip"
+  FAMILY="rockchip64"
+  SOC="rk3328"
+  BOOT_SCRIPT=boot-rockchip64.cmd
+  ;;
+'rockpi-s')
+  FAMILY="rockchip64"
+  SOC="rk3308"
+  BOOT_SCRIPT=boot-rockchip64-ttyS0.cmd
   ;;
 *)
-  PLATFORM="unknown"
   echo "Please set known board name as script parameter"
   exit 1
   ;;
 esac
 
-case $PLATFORM in
-'sun8i-h3' | 'sun7i-a20')
-  LINUX_CONGIG_NAME="linux-sunxi-${BRANCH}.config"
+case $FAMILY in
+'sunxi' | 'sunxi64')
+  LINUX_CONGIG_NAME="linux-${FAMILY}-${BRANCH}.config"
   PATCHES_SRC_DIR=${C}/patches/kernel/sunxi
   PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/sunxi-6.6
   ;;
-'sun50i-h5')
-  LINUX_CONGIG_NAME="linux-sunxi64-${BRANCH}.config"
-  PATCHES_SRC_DIR=${C}/patches/kernel/sunxi
-  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/sunxi-6.6
-  ;;
-'rockchip')
-  LINUX_CONGIG_NAME="linux-rockchip64-${BRANCH}.config"
-  case $BOARD in
-  'nanopineo3')
-    PATCHES_SRC_DIR=${C}/patches/kernel/rockchip/rk3328
-    ;;
-  'rockpi-s')
-    PATCHES_SRC_DIR=${C}/patches/kernel/rockchip/rk3308
-    ;;
-  esac
-
-  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/rockchip64-6.12
+'rockchip64')
+  LINUX_CONGIG_NAME="linux-${FAMILY}-${BRANCH}.config"
+  PATCHES_SRC_DIR=${C}/patches/kernel/${FAMILY}/${SOC}
+  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/rockchip64-6.15
   ;;
 esac
 
-
-echo "-----Build platform files for ${BOARD} - ${PLATFORM}-----"
+echo "-----Build SOC files for ${BOARD} - ${SOC}-----"
 
 if [ ! -d ${A} ]; then
   echo "Armbian folder not exists"
@@ -84,12 +82,12 @@ mkdir -p ${PATCHES_DST_DIR}
 cp ./${A}/config/kernel/${LINUX_CONGIG_NAME} ${C}/${A}/userpatches/
 
 echo "Enable PCM5102A and custom codec drivers in kernel config..."
-case $PLATFORM in
+case $SOC in
 'sun8i-h3' | 'sun7i-a20')
-  sed -i "s/# CONFIG_SND_SOC_PCM5102A is not set/CONFIG_SND_SOC_PCM5102A=m\nCONFIG_SND_SOC_I2S_CLOCK_BOARD=m/1" ./${A}/userpatches/${LINUX_CONGIG_NAME}
+  sed -i "s/# CONFIG_SND_SOC_PCM5102A is not set/CONFIG_SND_SOC_PCM5102A=m\nCONFIG_SND_SOC_I2S_CODEC=m/1" ./${A}/userpatches/${LINUX_CONGIG_NAME}
   ;;
-'sun50i-h5' | 'rockchip')
-  sed -i "s/CONFIG_SND_SOC_PCM5102A=m/CONFIG_SND_SOC_PCM5102A=m\nCONFIG_SND_SOC_I2S_CLOCK_BOARD=m/1" ./${A}/userpatches/${LINUX_CONGIG_NAME}
+'sun50i-h5' | 'rk3328'  | 'rk3308')
+  sed -i "s/CONFIG_SND_SOC_PCM5102A=m/CONFIG_SND_SOC_PCM5102A=m\nCONFIG_SND_SOC_I2S_CODEC=m/1" ./${A}/userpatches/${LINUX_CONGIG_NAME}
   ;;
 esac
 
@@ -101,7 +99,7 @@ cd ${A}
 echo "Clean old debs"
 rm -rf ./${A}/output/debs
 echo "U-Boot & kernel compile for ${BOARD}"
-./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" SHARE_LOG=yes ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes RELEASE=${RELEASE} KERNEL_CONFIGURE=no
+./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" SHARE_LOG=no ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes RELEASE=${RELEASE} KERNEL_CONFIGURE=no KERNELSOURCE="https://github.com/torvalds/linux" KERNELBRANCH="tag:v6.15"
 retVal=$?
 if [ $retVal -ne 0 ]; then
     echo "Error compile!"
@@ -121,8 +119,7 @@ dpkg-deb -x ./${A}/output/debs/linux-u-boot-* ${D}
 dpkg-deb -x ./${A}/output/debs/armbian-firmware_* ${D}
 
 echo "Copy U-Boot"
-
-if [ "$PLATFORM" = "rockchip" ]; then
+if [ "$FAMILY" = "rockchip64" ]; then
   cp ./${D}/usr/lib/linux-u-boot-${BRANCH}-*/*.* ./${D}/u-boot
 else
   cp ./${D}/usr/lib/linux-u-boot-${BRANCH}-*/u-boot-sunxi-with-spl.bin ./${D}/u-boot
@@ -131,8 +128,8 @@ fi
 rm -rf ./${D}/usr ./${D}/etc
 mv ./${D}/boot/dtb* ./${D}/boot/dtb
 
-case $PLATFORM in
-'sun50i-h5' | 'rockchip')
+case $FAMILY in
+'sunxi64' | 'rockchip64')
   mv ./${D}/boot/vmlinuz* ./${D}/boot/Image
   ;;
 *)
@@ -140,116 +137,35 @@ case $PLATFORM in
   ;;
 esac
 
-echo "Copy overlays for ${PLATFORM}"
+echo "Copy overlays for ${BOARD}"
 OVERLAYS_DIR=./${D}/boot/overlay-user
 mkdir ${OVERLAYS_DIR}
+cp ${C}/sources/overlays/${FAMILY}/${SOC}/*.dts ${OVERLAYS_DIR}
 
-case $BOARD in
-'nanopineo' | 'nanopiair' | 'orangepipc' | 'nanopineo2' | 'nanopineoplus2' | 'nanopineo2black')
-  cp ${C}/sources/overlays/allwinner/${PLATFORM}-*.* ${OVERLAYS_DIR}
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s0-master.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s0-master.dts
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s0-slave.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s0-slave.dts
-  #Overlays for power management
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powen.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powen.dts
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powbut.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powbut.dts
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powman.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powman.dts
-  ;;
-'cubietruck')
-  cp ${C}/sources/overlays/allwinner/${PLATFORM}-*.* ${OVERLAYS_DIR}
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s0-master.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s0-master.dts
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s0-slave.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s0-slave.dts
-  #overlays for disabling audio-codec and spdif for cubietruck
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-analog-codec-disable.dtbo ${OVERLAYS_DIR}/${PLATFORM}-analog-codec-disable.dts
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-spdif-disable.dtbo ${OVERLAYS_DIR}/${PLATFORM}-spdif-disable.dts
-  ;;
-'nanopineo3')
-  cp ${C}/sources/overlays/rockchip/rk3328/${PLATFORM}-*.* ${OVERLAYS_DIR}
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk-256.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk-256.dts
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk-512.dtbo ${OVERLAYS_DIR}/${PLATFORM}-i2s-external-mclk-512.dts
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-spdif-out-enable.dtbo ${OVERLAYS_DIR}/${PLATFORM}-spdif-out-enable.dts
-  #Overlays for power management
-  dtc -@ -q -I dts -O dtb -o ${OVERLAYS_DIR}/${PLATFORM}-powman.dtbo ${OVERLAYS_DIR}/${PLATFORM}-powman.dts
-  ;;
-esac
+echo "Compile overlays for ${BOARD}"
+for dts in "${OVERLAYS_DIR}"/*dts; do
+  dts_file=${dts%.*}
+  if [ -s "${dts_file}.dts" ]
+  then
+    echo "Compiling ${dts_file}"
+    dtc -O dtb -o "${dts_file}.dtbo" "${dts_file}.dts"
+    cp "${dts_file}.dtbo" "${P}"/boot/overlay-user
+  fi
+done
 
-case $PLATFORM in
-'sun8i-h3' | 'sun7i-a20')
-  cp ./${A}/config/bootscripts/boot-sunxi.cmd ./${D}/boot/boot.cmd
-  ;;
-'sun50i-h5')
-  cp ./${A}/config/bootscripts/boot-sun50i-next.cmd ./${D}/boot/boot.cmd
-  ;;
-'rockchip')
-  cp ./${A}/config/bootscripts/boot-rockchip64.cmd ./${D}/boot/boot.cmd
-  ;;
-esac
+cp ./${A}/config/bootscripts/${BOOT_SCRIPT} ./${D}/boot/boot.cmd
 
 mkimage -c none -A arm -T script -d ./${D}/boot/boot.cmd ./${D}/boot/boot.scr
 touch ./${D}/boot/.next
 
 echo "Create armbianEnv.txt"
-case $BOARD in
-'nanopineo' | 'nanopiair' | 'orangepipc')
-  echo "verbosity=1
-logo=disabled
-console=serial
-disp_mode=none
-overlay_prefix=sun8i-h3
-overlays=i2c0 analog-codec i2c0
-rootdev=/dev/mmcblk0p2
-rootfstype=ext4
-user_overlays=sun8i-h3-i2s0-slave
-usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
-extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0" >> ./${D}/boot/armbianEnv.txt
-  ;;
-'cubietruck')
-  echo "verbosity=1
-logo=disabled
-console=serial
-disp_mode=1920x1080p60
-overlay_prefix=sun7i-a20
-overlays=i2c0
-rootdev=/dev/mmcblk0p2
-rootfstype=ext4
-user_overlays=sun7i-a20-i2s0-slave
-extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0" >> ./${D}/boot/armbianEnv.txt
-  ;;
-'nanopineo2' | 'nanopineoplus2')
-  echo "verbosity=1
-logo=disabled
-console=serial
-overlay_prefix=sun50i-h5
-overlays=usbhost1 usbhost2 analog-codec i2c0
-rootdev=/dev/mmcblk0p2
-rootfstype=ext4
-user_overlays=sun50i-h5-i2s0-slave
-usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
-extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0" >> ./${D}/boot/armbianEnv.txt
-  ;;
-'nanopineo2black')
-  echo "verbosity=1
-logo=disabled
-console=serial
-overlay_prefix=sun50i-h5
-overlays=usbhost1 usbhost2 i2c0
-rootdev=/dev/mmcblk0p2
-rootfstype=ext4
-usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
-extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0" >> ./${D}/boot/armbianEnv.txt
-  ;;
-'nanopineo3')
-  echo "verbosity=1
-bootlogo=false
-overlay_prefix=rockchip
-fdtfile=rockchip/rk3328-nanopi-neo3-rev02.dtb
-rootfstype=ext4
-console=serial
-user_overlays=rockchip-spdif-out-enable
-usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
-extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0" >> ./${D}/boot/armbianEnv.txt
-  ;;
-esac
+cp ${C}/sources/bootparams/${BOARD}/armbianEnv.txt ./${D}/boot/
 
+if [ "$SOC" = "rk3308" ]; then
+  echo "Copy ALSA and Volumio plugins"
+  mkdir $D/volumio
+  cp -r ${C}/volumio/rk3308/* $D/volumio
+fi
 echo "Create $D.tar.xz"
 rm $D.tar.xz
 tar cJf $D.tar.xz $D

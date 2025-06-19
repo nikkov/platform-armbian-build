@@ -19,8 +19,8 @@
         target = <&i2s_8ch_0>;
         __overlay__ {
 			#sound-dai-cells = <0>;
-			clock-names = "mclk_tx\0mclk_rx\0hclk\0mclk_tx_src\0mclk_rx_src\0mclk_root0\0mclk_root1";
-			clocks = <0x02 0x4c 0x02 0x4e 0x02 0xa4 0x02 0x6e 0x02 0x6f 0x02 0x03 0x02 0x04>;
+			clock-names = "mclk_tx", "mclk_rx", "hclk", "mclk_tx_src", "mclk_rx_src", "mclk_root0", "mclk_root1";
+			clocks = <&cru 0x4c>, <&cru 0x4e>, <&cru 0xa4>, <&cru 0x6e>, <&cru 0x6f>, <&cru 0x03>, <&cru 0x04>;
             status = "okay";
         };
     };

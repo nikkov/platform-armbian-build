@@ -21,7 +21,7 @@ index 0d9d1d250f2b..2932a279e1a8 100644
  config SND_SOC_PCM512x
  	tristate
  
-+config SND_SOC_I2S_CLOCK_BOARD
++config SND_SOC_I2S_CODEC
 +	tristate "Simple I2S clock board"
 +
  config SND_SOC_PCM512x_I2C
@@ -51,7 +51,7 @@ index 69cb0b39f220..920172b4d109 100644
  obj-$(CONFIG_SND_SOC_PCM3168A_I2C)	+= snd-soc-pcm3168a-i2c.o
  obj-$(CONFIG_SND_SOC_PCM3168A_SPI)	+= snd-soc-pcm3168a-spi.o
  obj-$(CONFIG_SND_SOC_PCM5102A)	+= snd-soc-pcm5102a.o
-+obj-$(CONFIG_SND_SOC_I2S_CLOCK_BOARD)	+= snd-soc-i2s_clock_board.o
++obj-$(CONFIG_SND_SOC_I2S_CODEC)	+= snd-soc-i2s_clock_board.o
  obj-$(CONFIG_SND_SOC_PCM512x)	+= snd-soc-pcm512x.o
  obj-$(CONFIG_SND_SOC_PCM512x_I2C)	+= snd-soc-pcm512x-i2c.o
  obj-$(CONFIG_SND_SOC_PCM512x_SPI)	+= snd-soc-pcm512x-spi.o

@@ -1,0 +1,11 @@
+verbosity=1
+logo=disabled
+console=serial
+disp_mode=none
+overlay_prefix=sun8i-h3
+overlays=i2c0 analog-codec i2c0
+rootdev=/dev/mmcblk0p2
+rootfstype=ext4
+user_overlays=sun8i-h3-i2s0-slave
+usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
+extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0

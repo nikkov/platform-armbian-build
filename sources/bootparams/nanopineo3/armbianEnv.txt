@@ -1,0 +1,9 @@
+verbosity=1
+bootlogo=false
+overlay_prefix=rockchip
+fdtfile=rockchip/rk3328-nanopi-neo3-rev02.dtb
+rootfstype=ext4
+console=serial
+user_overlays=rockchip-spdif-out-enable
+usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
+extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0

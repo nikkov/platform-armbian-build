@@ -1,0 +1,118 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "radxa,rockpis", "rockchip,rk3308";
+	
+ 	fragment@0 {
+ 		target-path = "/";
+ 		__overlay__ {
+            i2s1_out: i2s1-clock {
+                #sound-dai-cells = <0>;
+                compatible = "custom,i2s_clock_board";
+				// GPIO0_B7
+                mute-gpios = <&gpio0 15 0>;
+                // inversion-mute;
+                status = "okay";
+            };
+ 		};
+ 	};
+
+	fragment@1 {
+        target-path = "/";
+        __overlay__ {
+            osc44m: osc44m {
+                compatible = "fixed-clock";
+                #clock-cells = <0>;
+                clock-frequency = <22579200>;
+            };
+
+            osc48m: osc48m {
+                compatible = "fixed-clock";
+                #clock-cells = <0>;
+                clock-frequency = <24576000>;
+            };
+
+            mclk_i2s0_8ch_in: mclk_i2s0_8ch_in {
+                compatible = "gpio-mux-clock";
+                #clock-cells = <0>;
+                clock-output-names = "mclk_i2s0_8ch_in";
+                clocks = <&osc44m>, <&osc48m>;
+				// GPIO0_C0
+                select-gpios = <&gpio0 16 0>;
+            };
+        };
+    };
+
+    fragment@3 {
+        target = <&i2s_8ch_0>;
+        __overlay__ {
+			//#sound-dai-cells = <0>;
+			//compatible = "rockchip,rk3308-i2s-tdm";
+            //clocks = <&cru SCLK_I2S0_8CH_TX>, <&cru SCLK_I2S0_8CH_RX>, <&cru HCLK_I2S0_8CH>,
+            //    <&mclk_i2s0_8ch_in>, <&clk_44>, <&clk_48>;
+            clocks = <&cru 0x4c>, <&cru 0x4e>, <&cru 0xa4>,
+                <&mclk_i2s0_8ch_in>, <&osc44m>, <&osc48m>;
+            clock-names = 	"mclk_tx", "mclk_rx", "hclk",
+                "mclk_ext", "clk_44", "clk_48";
+            //pinctrl-names = "default";
+            pinctrl-0 = <&i2s_8ch_0_sclktx
+                    &i2s_8ch_0_sclkrx
+                    &i2s_8ch_0_lrcktx
+                    &i2s_8ch_0_lrckrx
+                    &i2s_8ch_0_sdi0
+                    &i2s_8ch_0_sdi1
+                    &i2s_8ch_0_sdi2
+                    &i2s_8ch_0_sdi3
+                    &i2s_8ch_0_sdo0
+                    &i2s_8ch_0_sdo1
+                    &i2s_8ch_0_sdo2
+                    &i2s_8ch_0_sdo3
+                    &i2s_8ch_0_mclk>;
+            status = "okay";
+            //assigned-clocks = <&cru SCLK_I2S0_8CH_TX_MUX>, <&cru SCLK_I2S0_8CH_RX_MUX>;
+            assigned-clocks = <&cru 0x66>, <&cru 0x67>;
+            assigned-clock-parents = <&mclk_i2s0_8ch_in>, <&mclk_i2s0_8ch_in>;
+            my,mclk_external;
+			// GPIO1_D1
+            my,dsd-gpios = <&gpio1 25 0>;
+			my,inversion-dsd;
+        };
+    };
+
+    fragment@4 {
+        target-path = "/";
+        __overlay__ {
+			tdm_codec: tdm-codec {
+				compatible = "simple-audio-card";
+				simple-audio-card,name = "TDMCODEC";
+				simple-audio-card,format = "i2s";
+				simple-audio-card,mclk-fs = <512>;
+				status = "okay";
+
+				cpu_dai: simple-audio-card,cpu {
+					sound-dai = <&i2s_8ch_0>;
+				};
+						
+				codec_dai: simple-audio-card,codec {
+					sound-dai = <&i2s1_out>;
+				};
+			};
+		};
+    };
+
+	fragment@6 {
+        target = <&pcm5102_sound>;
+        __overlay__ {
+            status = "disable";
+        };
+    };
+
+	fragment@7 {
+        target = <&pcm5102a>;
+        __overlay__ {
+            status = "disable";
+        };
+    };
+
+};

@@ -1,0 +1,16 @@
+{
+  "name": "s2mono",
+  "version": "1.0.0",
+  "description": "My super cool plugin",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Volumio",
+  "license": "ISC",
+  "volumio_info": {
+    "plugin_type": "audio_interface",
+    "boot_priority": 4,
+    "has_alsa_contribution": true
+  }
+}
