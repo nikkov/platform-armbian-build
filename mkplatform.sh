@@ -3,7 +3,7 @@ C=`pwd`
 A=../armbian
 BRANCH=edge
 BOARD=$1
-V=v25.05
+V=v25.08
 D=${BOARD}-armbian
 RELEASE=bookworm
 
@@ -48,7 +48,7 @@ case $FAMILY in
 'rockchip64')
   LINUX_CONGIG_NAME="linux-${FAMILY}-${BRANCH}.config"
   PATCHES_SRC_DIR=${C}/patches/kernel/${FAMILY}/${SOC}
-  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/rockchip64-6.15
+  PATCHES_DST_DIR=${C}/${A}/userpatches/kernel/archive/rockchip64-6.16
   ;;
 esac
 
@@ -98,8 +98,16 @@ cd ${A}
 
 echo "Clean old debs"
 rm -rf ./${A}/output/debs
-echo "U-Boot & kernel compile for ${BOARD}"
-./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" SHARE_LOG=no ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes RELEASE=${RELEASE} KERNEL_CONFIGURE=no KERNELSOURCE="https://github.com/torvalds/linux" KERNELBRANCH="tag:v6.15"
+#echo "U-Boot & kernel compile for ${BOARD}"
+#./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" SHARE_LOG=no ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes RELEASE=${RELEASE} KERNEL_CONFIGURE=no KERNELSOURCE="https://github.com/torvalds/linux" KERNELBRANCH="tag:v6.15"
+#./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" SHARE_LOG=no ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes RELEASE=${RELEASE} KERNEL_CONFIGURE=no
+#echo "U-Boot compile for ${BOARD}"
+#./compile.sh uboot SHARE_LOG=no ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes
+#echo "Firmware compile for ${BOARD}"
+#./compile.sh firmware SHARE_LOG=no ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes
+#echo "Kernel compile for ${BOARD}"
+#./compile.sh kernel SHARE_LOG=no ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes KERNEL_CONFIGURE=no
+./compile.sh BUILD_ONLY="u-boot'kernel,armbian-firmware" SHARE_LOG=no ARTIFACT_IGNORE_CACHE='yes' BOARD=${BOARD} BRANCH=${BRANCH} BUILD_MINIMAL=yes RELEASE=${RELEASE} KERNEL_CONFIGURE=no
 retVal=$?
 if [ $retVal -ne 0 ]; then
     echo "Error compile!"
@@ -149,7 +157,7 @@ for dts in "${OVERLAYS_DIR}"/*dts; do
   then
     echo "Compiling ${dts_file}"
     dtc -O dtb -o "${dts_file}.dtbo" "${dts_file}.dts"
-    cp "${dts_file}.dtbo" "${P}"/boot/overlay-user
+#    cp "${dts_file}.dtbo" "${P}"/boot/overlay-user
   fi
 done
 
@@ -162,9 +170,14 @@ echo "Create armbianEnv.txt"
 cp ${C}/sources/bootparams/${BOARD}/armbianEnv.txt ./${D}/boot/
 
 if [ "$SOC" = "rk3308" ]; then
-  echo "Copy ALSA and Volumio plugins"
+  echo "Create folder for ALSA and Volumio plugins"
   mkdir $D/volumio
-  cp -r ${C}/volumio/rk3308/* $D/volumio
+  mkdir $D/volumio/s2mono
+  mkdir $D/volumio/volumio-plugin
+  echo "Copy ALSA and Volumio plugins"
+  cp -r ${C}/volumio/rk3308/s2mono/* $D/volumio/s2mono
+  tar -xf ${C}/volumio/rk3308/volumio-plugin/s2mono.tar.xz -C $D/volumio/volumio-plugin
+  tar -xf ${C}/volumio/rk3308/volumio-plugin/yandex_music.tar.xz -C $D/volumio/volumio-plugin
 fi
 echo "Create $D.tar.xz"
 rm $D.tar.xz

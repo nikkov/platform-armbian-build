@@ -27,12 +27,49 @@ struct i2s_clock_board_priv {
     struct device *dev;
     // mute pin, =0 if not used
     struct gpio_desc *pd_gpio;
+	// 2 pins to indicate the value of the divisor
+	struct gpio_descs *div_gpios;
+	u8 div_array[4];
     bool inverse_mute;
 };
 
 
 static const struct snd_soc_component_driver soc_codec_i2s_clock_board = {
 };
+
+static int set_clock(struct i2s_clock_board_priv *priv, unsigned long rate)
+{
+	u8 pins_value = 0;
+	if(priv->div_gpios == NULL)
+		return 0;
+
+	switch(rate)
+	{
+		case 44100:
+		case 48000:
+			pins_value = priv->div_array[0];
+			break;
+		case 88200:
+		case 96000:
+			pins_value = priv->div_array[1];
+			break;
+		case 176400:
+		case 192000:
+			pins_value = priv->div_array[2];
+			break;
+		case 384000:
+        case 352800:
+			pins_value = priv->div_array[3];
+			break;
+		default:
+			return ENOENT;
+	}
+
+	gpiod_set_value(priv->div_gpios->desc[0], pins_value & 1);
+	gpiod_set_value(priv->div_gpios->desc[1], (pins_value & 2) >> 1);
+	
+	return 0;
+}
 
 static int i2s_clock_board_trigger(struct snd_pcm_substream *substream, int cmd,
              struct snd_soc_dai *dai)
@@ -71,8 +108,27 @@ static int i2s_clock_board_trigger(struct snd_pcm_substream *substream, int cmd,
     return 0;
 }
 
+static int i2s_clock_board_hw_params(struct snd_pcm_substream *substream,
+			    struct snd_pcm_hw_params *params,
+			    struct snd_soc_dai *dai)
+{
+	struct snd_soc_component *component = dai->component;
+	struct i2s_clock_board_priv *priv = snd_soc_component_get_drvdata(component);
+	unsigned long rate = params_rate(params);
+	dev_dbg(priv->dev, "i2s_clock_board: %s, physical_width=%d, rate=%d, width=%d, format=%d\n", __func__, 
+		(int)params_physical_width(params),
+		(int)params_rate(params),
+		(int)params_width(params),
+		(int)params_format(params)
+	);
+	if(params_format(params) == SNDRV_PCM_FORMAT_DSD_U32_LE)
+		rate /= 2;
+	return set_clock(priv, rate);
+}
+
 static const struct snd_soc_dai_ops i2s_clock_board_dai_ops = {
     .trigger    = i2s_clock_board_trigger,
+	.hw_params	= i2s_clock_board_hw_params,
 };
 
 static struct snd_soc_dai_driver i2s_clock_board_dai = {
@@ -106,6 +162,7 @@ static int i2s_clock_board_probe(struct platform_device *pdev)
 {
     struct device *dev = &pdev->dev;
     struct i2s_clock_board_priv *priv;
+	int rprop_res;
 
     dev_dbg(dev, "%s\n", __func__);
     priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -118,7 +175,7 @@ static int i2s_clock_board_probe(struct platform_device *pdev)
     priv->pd_gpio = devm_gpiod_get(dev, "mute", GPIOD_OUT_HIGH);
     if (IS_ERR(priv->pd_gpio)) {
         priv->pd_gpio = 0;
-        dev_dbg(dev, "%s: mute not used\n", __func__);
+        dev_info(dev, "%s: mute not used\n", __func__);
     }
     else {
         if (of_property_read_bool(dev->of_node, "inversion-mute"))
@@ -126,7 +183,30 @@ static int i2s_clock_board_probe(struct platform_device *pdev)
         else
             priv->inverse_mute = false;
         gpiod_set_value(priv->pd_gpio, priv->inverse_mute ? 0 : 1);
-        dev_dbg(dev, "%s: mute used, inverse flag = %d\n", __func__, (int)priv->inverse_mute);
+        dev_info(dev, "%s: mute used, inverse flag = %d\n", __func__, (int)priv->inverse_mute);
+    }
+	
+	priv->div_gpios = devm_gpiod_get_array(dev, "div", GPIOD_OUT_HIGH);
+	if (IS_ERR(priv->div_gpios)) {
+        dev_info(dev, "%s: Failed to get GPIO array: %ld, dividers gpio not used\n", __func__, PTR_ERR(priv->div_gpios));
+		priv->div_gpios = NULL;
+	}
+	else {
+		if(priv->div_gpios->ndescs != 2) {
+			dev_err(dev, "gpio dividers pin number wrong count %u\n", priv->div_gpios->ndescs);
+			return -EINVAL;
+		}
+		rprop_res = of_property_read_variable_u8_array(dev->of_node, "div-values", priv->div_array, 1, 4);
+		if (rprop_res < 0) {
+			dev_err(dev, "Failed to read div-values property: %d\n", rprop_res);
+			return rprop_res;
+		}
+		if (rprop_res != 4) {
+			dev_err(dev, "Failed to read div-values property: wrong count %d\n", rprop_res);
+			return rprop_res;
+		}
+		for (size_t i = 0; i < 4; i++)
+			dev_info(dev, "div_array[%zu] = 0x%02x\n", i, priv->div_array[i]);
     }
 	
     return snd_soc_register_component(dev, &soc_codec_i2s_clock_board,

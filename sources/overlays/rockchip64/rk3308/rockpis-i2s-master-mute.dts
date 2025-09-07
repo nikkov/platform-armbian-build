@@ -1,0 +1,69 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "radxa,rockpis", "rockchip,rk3308";
+	
+ 	fragment@0 {
+ 		target-path = "/";
+ 		__overlay__ {
+            i2s1_out: i2s1-clock {
+                #sound-dai-cells = <0>;
+                compatible = "custom,i2s_clock_board";
+				// GPIO1_D1
+                mute-gpios = <&gpio1 25 0>;
+                // inversion-mute;
+                status = "okay";
+            };
+ 		};
+ 	};
+
+    fragment@1 {
+        target = <&i2s_8ch_0>;
+        __overlay__ {
+			#sound-dai-cells = <0>;
+			clock-names = "mclk_tx", "mclk_rx", "hclk", "mclk_tx_src", "mclk_rx_src", "mclk_root0", "mclk_root1";
+			clocks = <&cru 0x4c>, <&cru 0x4e>, <&cru 0xa4>, <&cru 0x6e>, <&cru 0x6f>, <&cru 0x03>, <&cru 0x04>;
+            status = "okay";
+			// GPIO1_C7
+            my,dsd-gpios = <&gpio1 23 0>;
+			my,inversion-dsd;
+        };
+    };
+
+    fragment@3 {
+        target-path = "/";
+        __overlay__ {
+			tdm_codec: tdm-codec {
+				compatible = "simple-audio-card";
+				simple-audio-card,name = "TDMCODEC";
+				simple-audio-card,format = "i2s";
+				simple-audio-card,mclk-fs = <512>;
+				status = "okay";
+
+				cpu_dai: simple-audio-card,cpu {
+					sound-dai = <&i2s_8ch_0>;
+				};
+						
+				codec_dai: simple-audio-card,codec {
+					sound-dai = <&i2s1_out>;
+				};
+			};
+		};
+    };
+	
+	fragment@4 {
+        target = <&pcm5102_sound>;
+        __overlay__ {
+            status = "disable";
+        };
+    };
+
+	fragment@5 {
+        target = <&pcm5102a>;
+        __overlay__ {
+            status = "disable";
+        };
+    };
+	
+};
