@@ -62,7 +62,7 @@ static int set_clock(struct i2s_clock_board_priv *priv, unsigned long rate)
 			pins_value = priv->div_array[3];
 			break;
 		default:
-			return ENOENT;
+			return -ENOENT;
 	}
 
 	gpiod_set_value(priv->div_gpios->desc[0], pins_value & 1);

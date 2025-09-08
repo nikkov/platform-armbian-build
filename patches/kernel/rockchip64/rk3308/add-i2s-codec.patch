@@ -127,7 +127,7 @@ index 000000000000..658b08abba8c
 +			pins_value = priv->div_array[3];
 +			break;
 +		default:
-+			return ENOENT;
++			return -ENOENT;
 +	}
 +
 +	gpiod_set_value(priv->div_gpios->desc[0], pins_value & 1);
