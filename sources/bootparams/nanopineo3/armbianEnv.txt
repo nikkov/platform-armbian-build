@@ -1,9 +1,10 @@
 verbosity=1
 bootlogo=false
+console=serial
 overlay_prefix=rockchip
 fdtfile=rockchip/rk3328-nanopi-neo3-rev02.dtb
+rootdev=UUID=
 rootfstype=ext4
-console=serial
 user_overlays=rockchip-spdif-out-enable
 usbstoragequirks=0x2537:0x1066:u,0x2537:0x1068:u
-extraargs=imgpart=/dev/mmcblk0p2 imgfile=/volumio_current.sqsh net.ifnames=0
+extraargs=swiotlb=1024 cma=16M imgpart=UUID= bootpart=UUID= datapart=UUID= uuidconfig=armbianEnv.txt bootconfig=armbianEnv.txt imgfile=/volumio_current.sqsh net.ifnames=0

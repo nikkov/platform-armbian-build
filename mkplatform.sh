@@ -169,16 +169,22 @@ touch ./${D}/boot/.next
 echo "Create armbianEnv.txt"
 cp ${C}/sources/bootparams/${BOARD}/armbianEnv.txt ./${D}/boot/
 
+# experimental plugin install area
+echo "Create folder for Volumio plugins"
+mkdir $D/volumio
+mkdir $D/volumio/volumio-plugin
+echo "Copy prebuilt Yandex Music Plugin"
+tar -xf ${C}/volumio/volumio-plugin/yandex_music.tar.xz -C $D/volumio/volumio-plugin
+
 if [ "$SOC" = "rk3308" ]; then
-  echo "Create folder for ALSA and Volumio plugins"
-  mkdir $D/volumio
+  echo "Create folder for ALSA plugin"
   mkdir $D/volumio/s2mono
-  mkdir $D/volumio/volumio-plugin
   echo "Copy ALSA and Volumio plugins"
-  cp -r ${C}/volumio/rk3308/s2mono/* $D/volumio/s2mono
-  tar -xf ${C}/volumio/rk3308/volumio-plugin/s2mono.tar.xz -C $D/volumio/volumio-plugin
-  tar -xf ${C}/volumio/rk3308/volumio-plugin/yandex_music.tar.xz -C $D/volumio/volumio-plugin
+  cp -r ${C}/volumio/s2mono/* $D/volumio/s2mono
+  tar -xf ${C}/volumio/volumio-plugin/s2mono.tar.xz -C $D/volumio/volumio-plugin
 fi
+# end of experimental plugin install area
+
 echo "Create $D.tar.xz"
 rm $D.tar.xz
 tar cJf $D.tar.xz $D
