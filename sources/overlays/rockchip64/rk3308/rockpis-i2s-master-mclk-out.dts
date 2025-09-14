@@ -9,7 +9,7 @@
  		__overlay__ {
             dummy_tdm_codec: dummy-codec {
                 status = "okay";
-                compatible = "rockchip,dummy-codec";
+                compatible = "custom,i2s_clock_board";
                 #sound-dai-cells = <0>;
             };
  		};
