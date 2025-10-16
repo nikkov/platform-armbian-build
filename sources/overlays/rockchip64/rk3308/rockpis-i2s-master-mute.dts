@@ -53,19 +53,4 @@
 			};
 		};
     };
-	
-	fragment@4 {
-        target = <&pcm5102_sound>;
-        __overlay__ {
-            status = "disable";
-        };
-    };
-
-	fragment@5 {
-        target = <&pcm5102a>;
-        __overlay__ {
-            status = "disable";
-        };
-    };
-	
 };
