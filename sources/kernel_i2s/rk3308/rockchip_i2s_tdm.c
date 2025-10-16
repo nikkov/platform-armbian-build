@@ -77,6 +77,7 @@ struct rk_i2s_tdm_dev {
 	unsigned int clk_trcm;
 	unsigned int i2s_sdis[CH_GRP_MAX];
 	unsigned int i2s_sdos[CH_GRP_MAX];
+	bool no_off_lrck;
 	int refcount;
 	spinlock_t lock; /* xfer lock */
 	bool has_playback;
@@ -1485,6 +1486,13 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 //+++
 
 //	i2s_tdm->dcount = 0;
+	i2s_tdm->no_off_lrck = 
+		of_property_read_bool(node, "my,no-off-lrck");
+		
+	if (i2s_tdm->no_off_lrck && i2s_tdm->clk_trcm != TRCM_TX) {
+		dev_err(i2s_tdm->dev, "invalid no-off-lrck and trcm-sync combination\n");
+		return -EINVAL;
+	}
 
 	i2s_tdm->io_multiplex =
 		of_property_read_bool(node, "rockchip,io-multiplex");
@@ -1568,6 +1576,16 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 		goto err_suspend;
 	}
 
+	if(i2s_tdm->no_off_lrck) {
+        dev_info(i2s_tdm->dev, "start transfer, i2s_tdm->clk_trcm=%d\n", i2s_tdm->clk_trcm);
+		i2s_tdm->refcount = 1;
+		rockchip_snd_xfer_sync_reset(i2s_tdm);
+		regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
+				   I2S_XFER_TXS_START |
+				   I2S_XFER_RXS_START,
+				   I2S_XFER_TXS_START |
+				   I2S_XFER_RXS_START);
+	}
 	return 0;
 
 err_suspend:

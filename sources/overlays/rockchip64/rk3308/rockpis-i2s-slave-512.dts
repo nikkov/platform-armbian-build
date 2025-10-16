@@ -68,10 +68,12 @@
             //assigned-clocks = <&cru SCLK_I2S0_8CH_TX_MUX>, <&cru SCLK_I2S0_8CH_RX_MUX>;
             assigned-clocks = <&cru 0x66>, <&cru 0x67>;
             assigned-clock-parents = <&mclk_i2s0_8ch_in>, <&mclk_i2s0_8ch_in>;
+			rockchip,trcm-sync-tx-only;
             my,mclk_external;
 			// GPIO1_C7
             my,dsd-gpios = <&gpio1 23 0>;
 			my,inversion-dsd;
+			my,no-off-lrck;
         };
     };
 
