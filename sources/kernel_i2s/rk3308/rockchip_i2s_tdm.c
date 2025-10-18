@@ -272,6 +272,10 @@ static void rockchip_snd_xfer_clear(struct rk_i2s_tdm_dev *i2s_tdm,
 			break;
 		}
 	}
+	if(tx && i2s_tdm->no_off_lrck)
+		regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
+				   I2S_XFER_TXS_START,
+				   I2S_XFER_TXS_START);
 }
 
 static inline void rockchip_enable_tde(struct regmap *regmap)
@@ -343,13 +347,15 @@ static void rockchip_snd_txctrl(struct rk_i2s_tdm_dev *i2s_tdm, int on)
 	if (on) {
 		rockchip_enable_tde(i2s_tdm->regmap);
 
+		if(!i2s_tdm->no_off_lrck)
 		regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
 				   I2S_XFER_TXS_START,
 				   I2S_XFER_TXS_START);
 	} else {
 		rockchip_disable_tde(i2s_tdm->regmap);
 
-		rockchip_snd_xfer_clear(i2s_tdm, I2S_CLR_TXC);
+		if(!i2s_tdm->no_off_lrck)
+			rockchip_snd_xfer_clear(i2s_tdm, I2S_CLR_TXC);
 	}
 }
 
@@ -843,21 +849,25 @@ s2mono_l:
 	if (i2s_tdm->clk_trcm) {
 		rockchip_i2s_trcm_mode(substream, dai, div_bclk, div_lrck, val);
 	} else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		if(i2s_tdm->no_off_lrck)
+			regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
+					   I2S_XFER_TXS_START,
+					   I2S_XFER_TXS_STOP);
+		
 		regmap_update_bits(i2s_tdm->regmap, I2S_CLKDIV,
 				   I2S_CLKDIV_TXM_MASK,
 				   I2S_CLKDIV_TXM(div_bclk));
-		//---???---
-		regmap_update_bits(i2s_tdm->regmap, I2S_CLKDIV,
-				   I2S_CLKDIV_RXM_MASK,
-				   I2S_CLKDIV_RXM(div_bclk));
-		//---
-
 		regmap_update_bits(i2s_tdm->regmap, I2S_CKR,
 				   I2S_CKR_TSD_MASK,
 				   I2S_CKR_TSD(div_lrck));
 		regmap_update_bits(i2s_tdm->regmap, I2S_TXCR,
 				   I2S_TXCR_VDW_MASK | I2S_TXCR_CSR_MASK,
 				   val);
+				   
+	if(i2s_tdm->no_off_lrck)
+		regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
+				   I2S_XFER_TXS_START,
+				   I2S_XFER_TXS_START);
 	} else {
 		regmap_update_bits(i2s_tdm->regmap, I2S_CLKDIV,
 				   I2S_CLKDIV_RXM_MASK,
@@ -1488,11 +1498,6 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 //	i2s_tdm->dcount = 0;
 	i2s_tdm->no_off_lrck = 
 		of_property_read_bool(node, "my,no-off-lrck");
-		
-	if (i2s_tdm->no_off_lrck && i2s_tdm->clk_trcm != TRCM_TX) {
-		dev_err(i2s_tdm->dev, "invalid no-off-lrck and trcm-sync combination\n");
-		return -EINVAL;
-	}
 
 	i2s_tdm->io_multiplex =
 		of_property_read_bool(node, "rockchip,io-multiplex");
@@ -1578,7 +1583,6 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 
 	if(i2s_tdm->no_off_lrck) {
         dev_info(i2s_tdm->dev, "start transfer, i2s_tdm->clk_trcm=%d\n", i2s_tdm->clk_trcm);
-		i2s_tdm->refcount = 1;
 		rockchip_snd_xfer_sync_reset(i2s_tdm);
 		regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
 				   I2S_XFER_TXS_START |
