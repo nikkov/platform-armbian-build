@@ -25,11 +25,10 @@
 			clock-names = "mclk_tx", "mclk_rx", "hclk", "mclk_tx_src", "mclk_rx_src", "mclk_root0", "mclk_root1";
 			clocks = <&cru 0x4c>, <&cru 0x4e>, <&cru 0xa4>, <&cru 0x6e>, <&cru 0x6f>, <&cru 0x03>, <&cru 0x04>;
             status = "okay";
-			rockchip,trcm-sync-tx-only;
 			// GPIO1_C7
             my,dsd-gpios = <&gpio1 23 0>;
 			my,inversion-dsd;
-			my,no-off-lrck;
+			my,leave-word-clock;
         };
     };
 
