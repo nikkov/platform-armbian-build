@@ -343,12 +343,8 @@ static void rockchip_snd_txctrl(struct rk_i2s_tdm_dev *i2s_tdm, int on)
 	} else {
 		rockchip_disable_tde(i2s_tdm->regmap);
 
-		if(!i2s_tdm->no_off_lrck) {
-		rockchip_snd_xfer_clear(i2s_tdm, I2S_CLR_TXC);
-			regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
-					   I2S_XFER_TXS_START,
-					   I2S_XFER_TXS_START);
-		}
+		if(!i2s_tdm->no_off_lrck)
+			rockchip_snd_xfer_clear(i2s_tdm, I2S_CLR_TXC);
 	}
 }
 
