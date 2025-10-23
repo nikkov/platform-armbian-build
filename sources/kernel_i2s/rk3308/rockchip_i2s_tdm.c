@@ -77,7 +77,8 @@ struct rk_i2s_tdm_dev {
 	unsigned int clk_trcm;
 	unsigned int i2s_sdis[CH_GRP_MAX];
 	unsigned int i2s_sdos[CH_GRP_MAX];
-	bool no_off_lrck;
+	// don't turn off word clock output
+	bool leave_word_clock;
 	int refcount;
 	spinlock_t lock; /* xfer lock */
 	bool has_playback;
@@ -332,7 +333,7 @@ static void rockchip_snd_txrxctrl(struct snd_pcm_substream *substream,
 static void rockchip_snd_txctrl(struct rk_i2s_tdm_dev *i2s_tdm, int on)
 {
 	if (on) {
-		if(i2s_tdm->no_off_lrck)
+		if(i2s_tdm->leave_word_clock)
 			rockchip_snd_xfer_clear(i2s_tdm, I2S_CLR_TXC);
 		
 		rockchip_enable_tde(i2s_tdm->regmap);
@@ -343,7 +344,7 @@ static void rockchip_snd_txctrl(struct rk_i2s_tdm_dev *i2s_tdm, int on)
 	} else {
 		rockchip_disable_tde(i2s_tdm->regmap);
 
-		if(!i2s_tdm->no_off_lrck)
+		if(!i2s_tdm->leave_word_clock)
 			rockchip_snd_xfer_clear(i2s_tdm, I2S_CLR_TXC);
 	}
 }
@@ -803,7 +804,7 @@ s2mono_l:
 	if (i2s_tdm->clk_trcm) {
 		rockchip_i2s_trcm_mode(substream, dai, div_bclk, div_lrck, val);
 	} else if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if(i2s_tdm->no_off_lrck)
+		if(i2s_tdm->leave_word_clock)
 			regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
 					   I2S_XFER_TXS_START,
 					   I2S_XFER_TXS_STOP);
@@ -818,7 +819,7 @@ s2mono_l:
 				   I2S_TXCR_VDW_MASK | I2S_TXCR_CSR_MASK,
 				   val);
 				   
-	if(i2s_tdm->no_off_lrck)
+	if(i2s_tdm->leave_word_clock)
 		regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
 				   I2S_XFER_TXS_START,
 				   I2S_XFER_TXS_START);
@@ -1435,8 +1436,8 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 //+++
 
 //	i2s_tdm->dcount = 0;
-	i2s_tdm->no_off_lrck = 
-		of_property_read_bool(node, "my,no-off-lrck");
+	i2s_tdm->leave_word_clock = 
+		of_property_read_bool(node, "my,leave-word-clock");
 		
 	i2s_tdm->io_multiplex =
 		of_property_read_bool(node, "rockchip,io-multiplex");
@@ -1520,7 +1521,7 @@ static int rockchip_i2s_tdm_probe(struct platform_device *pdev)
 		goto err_suspend;
 	}
 
-	if(i2s_tdm->no_off_lrck) {
+	if(i2s_tdm->leave_word_clock) {
         dev_info(i2s_tdm->dev, "start transfer, i2s_tdm->clk_trcm=%d\n", i2s_tdm->clk_trcm);
 		rockchip_snd_xfer_sync_reset(i2s_tdm);
 		regmap_update_bits(i2s_tdm->regmap, I2S_XFER,
