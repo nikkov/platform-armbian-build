@@ -175,14 +175,6 @@ mkdir $D/volumio
 mkdir $D/volumio/volumio-plugin
 echo "Copy prebuilt Yandex Music Plugin"
 tar -xf ${C}/volumio/volumio-plugin/yandex_music.tar.xz -C $D/volumio/volumio-plugin
-
-if [ "$SOC" = "rk3308" ]; then
-  echo "Create folder for ALSA plugin"
-  mkdir $D/volumio/s2mono
-  echo "Copy ALSA and Volumio plugins"
-  cp -r ${C}/volumio/s2mono/* $D/volumio/s2mono
-  tar -xf ${C}/volumio/volumio-plugin/s2mono.tar.xz -C $D/volumio/volumio-plugin
-fi
 # end of experimental plugin install area
 
 echo "Create $D.tar.xz"

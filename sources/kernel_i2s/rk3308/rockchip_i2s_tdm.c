@@ -916,6 +916,52 @@ static int rockchip_i2s_tdm_set_bclk_ratio(struct snd_soc_dai *dai,
 	return 0;
 }
 
+static int rockchip_i2s_custom_copy(struct snd_soc_component *component,
+                       struct snd_pcm_substream *substream,
+                       int channel,
+                       unsigned long pos,
+                       struct iov_iter *iter,
+                       unsigned long bytes)
+{
+    struct rk_i2s_tdm_dev *i2s_tdm;
+    void *buf;
+    size_t copied;
+	
+    i2s_tdm = snd_soc_component_get_drvdata(component);
+
+    if (!substream->runtime || !substream->runtime->dma_area) {
+        dev_err(component->dev, "Invalid DMA area\n");
+        return -EINVAL;
+	}
+    buf = substream->runtime->dma_area + pos;
+	
+    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		/* Copy from userspace (iter) to dma_area */
+		copied = copy_from_iter(buf, bytes, iter);
+		
+        /* Swap upper and lower 16 bits for DSD */
+        if (substream->runtime->format == SNDRV_PCM_FORMAT_DSD_U32_LE && 
+            bytes >= 4 && (bytes % 4) == 0) {
+            
+            uint32_t *samples = (uint32_t *)buf;
+            uint32_t total_samples = bytes / 4;
+            for (uint32_t i = 0; i < total_samples; i++) {
+                /* Swap upper and lower 16 bits: ABCD -> CDAB */
+                uint32_t sample = samples[i];
+                samples[i] = ((sample & 0xFFFF0000) >> 16) | ((sample & 0x0000FFFF) << 16);
+            }
+        }
+    } else {
+        /* Copy from dma_area to userspace (iter), NOT TESTED! */
+        copied = copy_to_iter(buf, bytes, iter);
+    }
+
+    if (copied != bytes)
+        return -EFAULT;
+
+    return 0;
+}
+
 static const struct snd_soc_dai_ops rockchip_i2s_tdm_dai_ops = {
 	.probe = rockchip_i2s_tdm_dai_probe,
 	.hw_params = rockchip_i2s_tdm_hw_params,
@@ -929,6 +975,7 @@ static const struct snd_soc_dai_ops rockchip_i2s_tdm_dai_ops = {
 static const struct snd_soc_component_driver rockchip_i2s_tdm_component = {
 	.name = DRV_NAME,
 	.legacy_dai_naming = 1,
+	.copy = rockchip_i2s_custom_copy,
 };
 
 static bool rockchip_i2s_tdm_wr_reg(struct device *dev, unsigned int reg)
