@@ -1,0 +1,59 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "radxa,rockpis", "rockchip,rk3308";
+	
+    fragment@0 {
+        target = <&codec>;
+        __overlay__ {
+            status = "disabled";
+        };
+    };
+	
+    fragment@1 {
+        target = <&i2s_8ch_0>;
+        __overlay__ {
+			#sound-dai-cells = <0>;
+			clock-names = "mclk_tx", "mclk_rx", "hclk", "mclk_tx_src", "mclk_rx_src", "mclk_root0", "mclk_root1";
+			clocks = <&cru 0x4c>, <&cru 0x4e>, <&cru 0xa4>, <&cru 0x6e>, <&cru 0x6f>, <&cru 0x03>, <&cru 0x04>;
+            status = "okay";
+        };
+    };
+
+ 	fragment@2 {
+        target = <&i2c1>;
+ 		__overlay__ {
+			status = "okay";
+			ssm3582a: ssm3582a-codec@10 {
+				compatible = "adi,ssm3582a"; 
+				reg = <0x10>; 
+				#sound-dai-cells = <0>; 
+			};
+ 		};
+ 	};
+
+	
+    fragment@3 {
+        target-path = "/";
+        __overlay__ {
+			tdm_codec: tdm-codec {
+				compatible = "simple-audio-card";
+				
+				simple-audio-card,name = "SSM3582A-Audio";
+				simple-audio-card,format = "i2s";
+				simple-audio-card,bitclock-master = <&cpu_dai>;
+				simple-audio-card,frame-master = <&cpu_dai>;
+				status = "okay";
+
+				cpu_dai: simple-audio-card,cpu {
+					sound-dai = <&i2s_8ch_0>;
+				};
+						
+				codec_dai: simple-audio-card,codec {
+					sound-dai = <&ssm3582a>;
+				};
+			};
+		};
+    };
+};
