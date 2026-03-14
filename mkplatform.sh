@@ -81,18 +81,20 @@ mkdir -p ${PATCHES_DST_DIR}
 
 cp ./${A}/config/kernel/${LINUX_CONGIG_NAME} ${C}/${A}/userpatches/
 
-echo "Enable PCM5102A and custom codec drivers in kernel config..."
+echo "Enable PCM5102A, SSM3582A and custom codec drivers in kernel config..."
 case $SOC in
 'sun8i-h3' | 'sun7i-a20')
-  sed -i "s/# CONFIG_SND_SOC_PCM5102A is not set/CONFIG_SND_SOC_PCM5102A=m\nCONFIG_SND_SOC_I2S_CODEC=m/1" ./${A}/userpatches/${LINUX_CONGIG_NAME}
+  sed -i "s/# CONFIG_SND_SOC_PCM5102A is not set/CONFIG_SND_SOC_PCM5102A=m\nCONFIG_SND_SOC_SSM3582A=m\nCONFIG_SND_SOC_I2S_CODEC=m/1" ./${A}/userpatches/${LINUX_CONGIG_NAME}
   ;;
 'sun50i-h5' | 'rk3328'  | 'rk3308')
-  sed -i "s/CONFIG_SND_SOC_PCM5102A=m/CONFIG_SND_SOC_PCM5102A=m\nCONFIG_SND_SOC_I2S_CODEC=m/1" ./${A}/userpatches/${LINUX_CONGIG_NAME}
+  sed -i "s/CONFIG_SND_SOC_PCM5102A=m/CONFIG_SND_SOC_PCM5102A=m\nCONFIG_SND_SOC_SSM3582A=m\nCONFIG_SND_SOC_I2S_CODEC=m/1" ./${A}/userpatches/${LINUX_CONGIG_NAME}
   ;;
 esac
 
 #copy kernel patches
 cp ${PATCHES_SRC_DIR}/*.patch ${PATCHES_DST_DIR}/
+#copy codecs patches
+cp ${C}/patches/codecs/*.patch ${PATCHES_DST_DIR}/
 
 cd ${A}
 
