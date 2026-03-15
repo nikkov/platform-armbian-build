@@ -314,7 +314,8 @@ static int ssm3582a_i2c_probe(struct i2c_client *client)
     struct device *dev = &client->dev;
     struct regmap *regmap;
     unsigned int reg_val;
-    int ret;
+    int ret, count;
+    u8 *init_data;
 
     // 1. Initialization regmap
     regmap = devm_regmap_init_i2c(client, &ssm3582a_regmap_config);
@@ -335,8 +336,36 @@ static int ssm3582a_i2c_probe(struct i2c_client *client)
     regmap_write(regmap, SSM3582A_REG_SOFT_RESET, 0x01);
     usleep_range(2000, 3000); // Timeout for the chip core to reboot
 
-	// Write only "Automatic power-down feature enabled" bit
-    regmap_write(regmap, SSM3582A_REG_POWER_CTRL, 0x80);
+    count = device_property_count_u8(dev, "init-registers");
+    if (count > 0) {
+        // need pair address-value
+        if (count % 2 != 0) {
+            dev_err(dev, "init-registers property must have even number of elements\n");
+            return -EINVAL;
+        }
+        init_data = devm_kcalloc(dev, count, sizeof(u8), GFP_KERNEL);
+        if (!init_data)
+            return -ENOMEM;
+        ret = device_property_read_u8_array(dev, "init-registers", init_data, count);
+        if (ret) {
+            dev_err(dev, "Failed to read init-registers: %d\n", ret);
+            return ret;
+        }
+
+        // write init values to device
+        for (int i = 0; i < count; i += 2) {
+            u8 reg = init_data[i];
+            u8 val = init_data[i + 1];
+
+            ret = regmap_write(regmap, reg, val);
+            if (ret) {
+                dev_err(dev, "Failed to write reg 0x%x: %d\n", reg, ret);
+                return ret;
+            }
+            dev_info(dev, "Init: wrote 0x%02x to reg 0x%02x\n", val, reg);
+        }
+        kfree(init_data);
+    }
 
     // 4. Registering a Component with ASoC
     ret = devm_snd_soc_register_component(dev, &soc_component_dev_ssm3582a,

@@ -29,6 +29,7 @@
 				compatible = "adi,ssm3582a"; 
 				reg = <0x10>; 
 				#sound-dai-cells = <0>; 
+				init-registers = /bits/ 8 <0x04 0x80 0x05 0x88>;
 			};
  		};
  	};
