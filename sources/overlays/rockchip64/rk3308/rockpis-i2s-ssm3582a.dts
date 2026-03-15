@@ -25,6 +25,8 @@
         target = <&i2c1>;
  		__overlay__ {
 			status = "okay";
+			#address-cells = <0x01>;
+			#size-cells = <0x00>;
 			ssm3582a: ssm3582a-codec@10 {
 				compatible = "adi,ssm3582a"; 
 				reg = <0x10>; 
