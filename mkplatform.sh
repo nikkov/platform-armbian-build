@@ -28,7 +28,7 @@ case $BOARD in
   SOC="rk3328"
   BOOT_SCRIPT=boot-rockchip64.cmd
   ;;
-'rockpi-s')
+'rockpi-s' | 'rock-s0')
   FAMILY="rockchip64"
   SOC="rk3308"
   BOOT_SCRIPT=boot-rockchip64-ttyS0.cmd
